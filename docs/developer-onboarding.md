@@ -192,6 +192,16 @@ sudo systemctl stop messagebox-button.service
 sudo -u messagebox -H python3 /opt/messagebox/dev/virtual-buttons.py
 ```
 
+To try code changes on a provisioned test box without a full provision, run
+`./scripts/dev/push-code.sh user@host` from your computer. It replaces only
+already-installed runtime Python files and the runner, then restarts the
+running button, poller and dashboard services. Anything else (new files,
+units, sounds, packages, config) still needs `scripts/provision.sh`.
+
+Incoming messages are polled only from other accounts: messages sent from the
+box's own WhatsApp account (including its "message yourself" chat) are
+ignored, so test receiving from a second WhatsApp account.
+
 Without a speaker, prefix the runner with `env MSGBOX_SPK_DEV=null`. Restart
 the service afterwards with `sudo systemctl start messagebox-button.service`.
 
