@@ -59,6 +59,7 @@ def installed_paths(root):
         "scripts/commands/messagebox-init-wifi-onboarding": "/usr/local/sbin/messagebox-init-wifi-onboarding",
         "scripts/dev/onboard.sh": "/usr/local/bin/messagebox-dev-onboard",
         "scripts/dev/hardware-test.sh": "/opt/messagebox/dev/hardware-test.sh",
+        "scripts/dev/virtual-buttons.py": "/opt/messagebox/dev/virtual-buttons.py",
         "config/requirements-nfc.txt": "/opt/messagebox/config/requirements-nfc.txt",
     })
     return paths

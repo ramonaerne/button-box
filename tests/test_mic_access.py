@@ -149,6 +149,11 @@ class MicAccessTests(unittest.TestCase):
                                      "['runuser', '-u', 'messagebox', '--', tool, '-l']")
                     self.assertEqual(text.count("arecord"), 1)
                     self.assertIsNone(forbidden.search(text.replace("arecord", "")), relative)
+                elif relative == "scripts/dev/virtual-buttons.py":
+                    # Names only the PATH shim that replaces the recorder with a
+                    # generated tone; it never opens an ALSA capture device.
+                    self.assertEqual(text.count("arecord"), 1)
+                    self.assertIsNone(forbidden.search(text.replace("arecord", "")), relative)
                 else:
                     # Error messages refer to the recorder without executing it.
                     text = text.replace("arecord exited unexpectedly", "")

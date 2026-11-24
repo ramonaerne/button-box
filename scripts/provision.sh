@@ -55,6 +55,7 @@ rsync -azR \
   "$REPO_DIR/./scripts/commands/messagebox-init-wifi-onboarding" \
   "$REPO_DIR/./scripts/dev/onboard.sh" \
   "$REPO_DIR/./scripts/dev/hardware-test.sh" \
+  "$REPO_DIR/./scripts/dev/virtual-buttons.py" \
   "$REPO_DIR/./scripts/messageboxctl" \
   "$REPO_DIR/./scripts/setup.sh" \
   "$REPO_DIR/./sounds/" \

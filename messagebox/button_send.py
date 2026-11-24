@@ -46,7 +46,7 @@ from messagebox.guided_reply import (
 from messagebox.audio_requests import AudioRequests, OptionalAudioRequests, success_key
 from messagebox.played_history import archive_played_file, recent_reply_recipient
 from messagebox.listened_receipts import AnnouncementGate, ReceiptStore, parse_wacli_send_id
-from messagebox.contacts import _BOX_JID, ContactError, ContactStore
+from messagebox.contacts import _BOX_JID, MAX_CHANNELS, ContactError, ContactStore
 from messagebox.nfc_state import AnnouncementStore, NfcError, SelectionStore, REANNOUNCE_COOLDOWN_S
 from messagebox.runtime_paths import APP_DIR, OUTBOX_DIR as DEFAULT_OUTBOX_DIR
 from messagebox.runtime_paths import QUEUE_DIR as DEFAULT_QUEUE_DIR
@@ -73,6 +73,9 @@ SPEAKER_CARD = os.environ.get("MSGBOX_SPEAKER_CARD", "Device")
 SPEAKER_CONTROL = os.environ.get("MSGBOX_SPEAKER_CONTROL", "PCM")
 BUTTON_PIN = int(os.environ.get("MSGBOX_BUTTON_PIN", "17"))
 LED_PIN = int(os.environ.get("MSGBOX_LED_PIN", "26"))
+# "BUTTON:LED,BUTTON:LED" in BCM numbering; button N is channel N. Empty keeps
+# the single-button NFC/recent/default routing.
+CHANNEL_PINS = os.environ.get("MSGBOX_CHANNEL_PINS", "")
 # Sync owns the store continuously. An immediate lock failure lets wacli
 # delegate supported sends to its active sync connection without delaying them.
 SEND_LOCK_WAIT = "0s"
@@ -392,11 +395,71 @@ def acknowledge_guided_press(action, session_id=None):
     log_event("guided_press", **fields)
 
 
-def queued():
+def queued(chat=None):
     try:
-        return sorted(name for name in os.listdir(QUEUE_DIR) if name.endswith(".wav"))
+        names = sorted(name for name in os.listdir(QUEUE_DIR) if name.endswith(".wav"))
     except FileNotFoundError:
         return []
+    if chat is None:
+        return names
+    return [
+        name
+        for name in names
+        if (queue_metadata(Path(QUEUE_DIR) / name) or {}).get("chat") == chat
+    ]
+
+
+def parse_channel_pins(raw):
+    """Return [(channel, button_pin, led_pin)]; reject anything ambiguous."""
+    if not raw.strip():
+        return []
+    channels = []
+    for number, pair in enumerate(raw.split(","), start=1):
+        button_pin, separator, led_pin = pair.strip().partition(":")
+        if not separator:
+            raise ValueError("MSGBOX_CHANNEL_PINS entries must be BUTTON:LED")
+        channels.append((str(number), int(button_pin), int(led_pin)))
+    pins = [pin for _, button_pin, led_pin in channels for pin in (button_pin, led_pin)]
+    if len(set(pins)) != len(pins) or len(channels) > MAX_CHANNELS:
+        raise ValueError("MSGBOX_CHANNEL_PINS has duplicate pins or too many channels")
+    return channels
+
+
+class AnyButton:
+    """Idle view of all channel buttons: pressed when any one is pressed.
+
+    Deliberately not a gpiozero Button, so it can never obtain a capture
+    permit; a press is always re-bound to the one physical channel button.
+    """
+
+    def __init__(self, buttons):
+        self.buttons = buttons
+
+    @property
+    def is_pressed(self):
+        return any(button.is_pressed for button in self.buttons)
+
+
+class LedGroup:
+    def __init__(self, leds):
+        self.leds = leds
+
+    def on(self):
+        for lamp in self.leds:
+            lamp.on()
+
+    def off(self):
+        for lamp in self.leds:
+            lamp.off()
+
+
+def channel_chat(channel):
+    """The bound chat, or None; never falls back to another chat."""
+    try:
+        return ContactStore(CONTACTS_FILE).channel_chat(channel)
+    except (ContactError, OSError) as exc:
+        log(f"channel routing unavailable: {exc}")
+        return None
 
 
 def legacy_outbox_files():
@@ -425,6 +488,8 @@ def compatible_legacy_outbox_files():
 
 _recording = False
 _capture_permit = None
+channels = []
+_channel_chat = None
 _guided_active = False
 outbox_store = None
 receipt_store = None
@@ -1297,7 +1362,13 @@ def refresh_led(force=False, settings=None):
     _led_last = now
     settings = settings or caregiver_settings()
     lamp_enabled = settings["arrival_signal"] in {"ring_and_lamp", "lamp_only"}
-    (led.on if queued() and lamp_enabled and not quiet_hours(settings) else led.off)()
+    lamp_allowed = lamp_enabled and not quiet_hours(settings)
+    if channels:
+        for channel in channels:
+            chat = channel_chat(channel["id"]) if lamp_allowed else None
+            (channel["led"].on if chat and queued(chat) else channel["led"].off)()
+        return
+    (led.on if queued() and lamp_allowed else led.off)()
 
 
 def ring_windows():
@@ -1414,8 +1485,20 @@ def maybe_ring():
     fresh = (snapshot - _known) - _seen_ever
     _known = snapshot
     _seen_ever.update(snapshot)
+    lamp = None
+    if channels and fresh:
+        chats = {
+            (queue_metadata(Path(QUEUE_DIR) / name) or {}).get("chat") for name in fresh
+        }
+        ringing = [ch["led"] for ch in channels if channel_chat(ch["id"]) in chats]
+        if not ringing:
+            return  # Only bound chats ring; others are never offered on a button.
+        lamp = LedGroup(ringing)
     if fresh and not morning_consumed and not quiet_hours(settings) and settings["arrival_signal"] != "silent":
-        ring_alert(settings=settings)
+        if lamp:
+            ring_alert(settings=settings, lamp=lamp)
+        else:
+            ring_alert(settings=settings)
 
 
 def maybe_manual_ring():
@@ -1433,8 +1516,9 @@ def maybe_manual_ring():
         log(f"manual ring request error: {exc}")
 
 
-def ring_alert(source="new_message", settings=None):
+def ring_alert(source="new_message", settings=None, lamp=None):
     settings = settings or caregiver_settings()
+    lamp = lamp or led
     if transport_mode() == "cloud" and quiet_hours(settings):
         return True
     path = os.fspath(ringtone_path(settings))
@@ -1457,7 +1541,7 @@ def ring_alert(source="new_message", settings=None):
             process is None and time.monotonic() - started < 9
         ):
             elapsed = time.monotonic() - started
-            (led.on if flash_lamp and ring_lamp_on(elapsed, settings["ringtone_id"]) else led.off)()
+            (lamp.on if flash_lamp and ring_lamp_on(elapsed, settings["ringtone_id"]) else lamp.off)()
             if button.is_pressed or (transport_mode() == "cloud" and quiet_hours()):
                 closed_at = time.monotonic()
                 pressed = button.is_pressed
@@ -1468,7 +1552,7 @@ def ring_alert(source="new_message", settings=None):
                         and queued() and not _recording and not _guided_active):
                     # Capture the physical press before waiting for ALSA to
                     # close; then use the same routing and hold/tap handler.
-                    if handle_confirmed_press(closed_at, before_dispatch=wait_for_ring):
+                    if dispatch_press(closed_at, before_dispatch=wait_for_ring):
                         wait_for_stable_open()
                 break
             time.sleep(0.02)
@@ -2304,9 +2388,9 @@ class PiGuidedIO:
             pass
 
 
-def play_next_legacy():
+def play_next_legacy(chat=None):
     play_pending_listened()
-    names = queued()
+    names = queued(chat)
     if not names:
         return
     selected = None
@@ -2351,7 +2435,12 @@ def record_and_send_legacy(settings=None, pressed_at=None, *, card_prompt_uid=No
     reconcile_card_selections()
     settings = settings or caregiver_settings()
     scope = cloud_runtime.account_scope() if transport_mode() == "cloud" else None
-    card_state, context = claim_fresh_card_intent()
+    if channels:
+        # The pressed button's bound chat is the only route (see dispatch_press).
+        card_state = "channel"
+        context = {"contact": {"jid": _channel_chat}, "via_card": False}
+    else:
+        card_state, context = claim_fresh_card_intent()
     intent = "record" if card_prompt_uid else acknowledge_and_classify_legacy_press(pressed_at)
     if intent == "play":
         wait_for_stable_open()
@@ -2360,7 +2449,10 @@ def record_and_send_legacy(settings=None, pressed_at=None, *, card_prompt_uid=No
             # playing an unrelated queued message or saving silent audio.
             log_event("nfc_recording_cancelled", reason="short_press")
             return
-        play_next_legacy()
+        if channels:
+            play_next_legacy(_channel_chat)
+        else:
+            play_next_legacy()
         return
     if card_state == "expired":
         block_unavailable_recipient()
@@ -2656,6 +2748,33 @@ def claim_only_loop():
             time.sleep(POLL_S)
 
 
+def dispatch_press(closed_at, *, before_dispatch=None):
+    """Route a confirmed press; with channels, only to the pressed button's chat."""
+    global button, led, _channel_chat
+    if not channels:
+        return handle_confirmed_press(closed_at, before_dispatch=before_dispatch)
+    channel = next((ch for ch in channels if ch["button"].is_pressed), None)
+    if channel is None:
+        return False
+    chat = channel_chat(channel["id"])
+    if chat is None:
+        if before_dispatch is not None:
+            before_dispatch()
+        log(f"channel {channel['id']} is not bound")
+        log_event("channel_unbound", channel=channel["id"])
+        beep("fail")
+        wait_for_stable_open()
+        return True
+    # Other buttons are ignored until this interaction ends; the capture
+    # permit is taken from this channel's own physical button.
+    idle_button, idle_led = button, led
+    button, led, _channel_chat = channel["button"], channel["led"], chat
+    try:
+        return handle_confirmed_press(closed_at, before_dispatch=before_dispatch)
+    finally:
+        button, led, _channel_chat = idle_button, idle_led, None
+
+
 def handle_confirmed_press(closed_at, *, card_prompt_uid=None, before_dispatch=None):
     try:
         reconcile_card_selections()
@@ -2719,7 +2838,8 @@ def _handle_confirmed_press(closed_at, *, card_prompt_uid=None):
     try:
         state = cloud_setup.SetupGuide().load() if transport_mode() == "cloud" else None
         setup_action = state and state["stage"] in {"names", "waiting_note", "your_turn"}
-        if setup_action or interaction_settings["talk_mode"] == "tap":
+        # Guided (tap) sessions are not channel-aware yet; channels always hold to talk.
+        if not channels and (setup_action or interaction_settings["talk_mode"] == "tap"):
             # Cloud Button Box capture ignores the start press until release.
             # Other modes retain their existing acknowledgement and release.
             if card_prompt_uid:
@@ -2751,11 +2871,15 @@ def _handle_confirmed_press(closed_at, *, card_prompt_uid=None):
 
 
 def main():
-    global button, led, outbox_store, receipt_store
+    global button, led, outbox_store, receipt_store, channels
     try:
         transport_mode()
+        channel_pins = parse_channel_pins(CHANNEL_PINS)
     except ValueError as exc:
         log(str(exc))
+        return 2
+    if channel_pins and transport_mode() == "cloud":
+        log("button channels require the wacli transport")
         return 2
     if transport_mode() == "cloud" and os.environ.get("MSGBOX_CLAIM_ONLY") == "1":
         if "--drain" in sys.argv:
@@ -2803,7 +2927,14 @@ def main():
         return 2
 
     threading.Thread(target=sender_loop, daemon=True).start()
-    button = Button(BUTTON_PIN)
+    if channel_pins:
+        channels = [
+            {"id": number, "button": Button(button_pin), "led": LED(led_pin)}
+            for number, button_pin, led_pin in channel_pins
+        ]
+        button = AnyButton([channel["button"] for channel in channels])
+    else:
+        button = Button(BUTTON_PIN)
     if transport_mode() == "cloud":
         from messagebox.cloud_update import button_ready, confirmation, install_announcer
         button_ready(button)
@@ -2811,7 +2942,7 @@ def main():
         confirmation.on_hold = start_update_hold_cue
         confirmation.on_confirmed = start_update_cue
         threading.Thread(target=install_announcer.run, daemon=True).start()
-    led = LED(LED_PIN)
+    led = LedGroup([channel["led"] for channel in channels]) if channels else LED(LED_PIN)
     apply_master_volume()
     if button.is_pressed:
         log("switch CLOSED at startup - waiting for it to open")
@@ -2821,7 +2952,7 @@ def main():
     log(
         f'armed: recording_mode={startup_settings["recording_mode"]} '
         f'after_listening={startup_settings["after_listening"]} '
-        f"routing_mode={routing_mode()} "
+        f"routing_mode={f'{len(channels)}_channels' if channels else routing_mode()} "
         f"({len(queued())} queued, "
         f"{len(outbox_store.jobs()) + len(compatible_legacy_outbox_files())} unsent)"
     )
@@ -2863,7 +2994,7 @@ def main():
             maybe_manual_ring()
             maybe_ring()
         closed_at = time.monotonic()
-        handle_confirmed_press(closed_at)
+        dispatch_press(closed_at)
 
 
 if __name__ == "__main__":

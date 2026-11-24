@@ -110,6 +110,7 @@ EXPLICIT_TARGETS = {
     "scripts/commands/messagebox-init-wifi-onboarding": "/usr/local/sbin/messagebox-init-wifi-onboarding",
     "scripts/dev/onboard.sh": "/usr/local/bin/messagebox-dev-onboard",
     "scripts/dev/hardware-test.sh": "/opt/messagebox/dev/hardware-test.sh",
+    "scripts/dev/virtual-buttons.py": "/opt/messagebox/dev/virtual-buttons.py",
     "config/requirements-nfc.txt": "/opt/messagebox/config/requirements-nfc.txt",
 }
 for name in ("hello_piano", "sunshine", "bouncy", "sing_along", "island", "hello", "ukulele"):
@@ -202,6 +203,7 @@ EXECUTABLE_TARGETS = {
     "/usr/local/sbin/messagebox-comitup-state",
     "/usr/local/sbin/messagebox-init-wifi-onboarding",
     "/opt/messagebox/dev/hardware-test.sh",
+    "/opt/messagebox/dev/virtual-buttons.py",
     "/opt/messagebox/messagebox/syncloop.sh",
 }
 ENABLED_STATES = {"enabled"}

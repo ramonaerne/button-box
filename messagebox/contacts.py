@@ -23,7 +23,8 @@ from typing import Any
 from messagebox.runtime_paths import ASSET_DIR, CONTACTS_FILE, NFC_ENROLLMENT_FILE
 
 
-SCHEMA_VERSION = 2
+SCHEMA_VERSION = 3
+MAX_CHANNELS = 8
 ASSET_ROOT = str(ASSET_DIR)
 MAX_LABEL_LENGTH = 80
 MAX_NAME_LENGTH = 80
@@ -35,7 +36,8 @@ _PERSON_JID = re.compile(r"^[0-9]+@s\.whatsapp\.net$")
 _BOX_JID = re.compile(r"^box:[A-Za-z0-9:._-]{1,240}$")
 _UID = re.compile(r"^[0-9A-F]+$")
 _LEGACY_ROOT_KEYS = {"version", "revision", "contacts", "listeners"}
-_ROOT_KEYS = _LEGACY_ROOT_KEYS | {"default_recipient"}
+_V2_ROOT_KEYS = _LEGACY_ROOT_KEYS | {"default_recipient"}
+_ROOT_KEYS = _V2_ROOT_KEYS | {"channels"}
 _CONTACT_KEYS = {
     "label",
     "kind",
@@ -56,6 +58,7 @@ def _empty_document() -> JsonObject:
         "version": SCHEMA_VERSION,
         "revision": 0,
         "default_recipient": None,
+        "channels": {},
         "contacts": {},
         "listeners": {},
     }
@@ -144,6 +147,14 @@ def _normalize_uid(value: object) -> str:
     return ":".join(raw[index : index + 2] for index in range(0, len(raw), 2))
 
 
+def _clean_channel(value: object) -> str:
+    """Channels are button numbers 1..MAX_CHANNELS, stored as JSON keys."""
+    text = str(value).strip() if isinstance(value, (str, int)) else ""
+    if not text.isdigit() or not 1 <= int(text) <= MAX_CHANNELS:
+        raise ContactError("channel is invalid")
+    return str(int(text))
+
+
 def normalize_card_uid(value: object) -> str:
     """Return the canonical UID stored for a physical card."""
     return _normalize_uid(value)
@@ -164,9 +175,9 @@ def _validate_document(document: object) -> JsonObject:
     if not isinstance(document, dict):
         raise ContactError("contact store has an invalid schema")
     version = document.get("version")
-    if type(version) is not int or version not in {1, SCHEMA_VERSION}:
+    if type(version) is not int or version not in {1, 2, SCHEMA_VERSION}:
         raise ContactError("contact store version is unsupported")
-    expected_keys = _LEGACY_ROOT_KEYS if version == 1 else _ROOT_KEYS
+    expected_keys = {1: _LEGACY_ROOT_KEYS, 2: _V2_ROOT_KEYS}.get(version, _ROOT_KEYS)
     if set(document) != expected_keys:
         raise ContactError("contact store has an invalid schema")
     revision = document["revision"]
@@ -208,10 +219,20 @@ def _validate_document(document: object) -> JsonObject:
             raise ContactError("contact store contains an invalid listened clip")
     upgraded = copy.deepcopy(document)
     if version == 1:
-        upgraded["version"] = SCHEMA_VERSION
         upgraded["default_recipient"] = (
             next(iter(contacts)) if len(contacts) == 1 else None
         )
+    if version < SCHEMA_VERSION:
+        upgraded["version"] = SCHEMA_VERSION
+        upgraded["channels"] = {}
+    channels = upgraded["channels"]
+    if not isinstance(channels, dict):
+        raise ContactError("contact store has invalid channels")
+    for channel, jid in channels.items():
+        if channel != _clean_channel(channel) or jid not in contacts:
+            raise ContactError("contact store has invalid channels")
+    if len(set(channels.values())) != len(channels):
+        raise ContactError("contact store has invalid channels")
     default_recipient = upgraded["default_recipient"]
     if default_recipient is not None:
         try:
@@ -306,6 +327,14 @@ class ContactStore:
             document = self._read()
             changed, result = mutation(document)
             if changed:
+                # Any mutation that removes a contact (including whole-list
+                # syncs) unbinds its button rather than leaving a dangling,
+                # unreadable store; the button then fails closed.
+                document["channels"] = {
+                    channel: jid
+                    for channel, jid in document["channels"].items()
+                    if jid in document["contacts"]
+                }
                 document["revision"] += 1
                 self._write(document)
             return result
@@ -328,6 +357,7 @@ class ContactStore:
             if not document["contacts"] and not document["listeners"]:
                 return False, copy.deepcopy(document)
             document["default_recipient"] = None
+            document["channels"] = {}
             document["contacts"] = {}
             document["listeners"] = {}
             return True, copy.deepcopy(document)
@@ -395,6 +425,39 @@ class ContactStore:
             return True, True
 
         return self._mutate(remove)
+
+    def bind_channel(self, channel, jid) -> JsonObject:
+        """Bind one approved chat to one button; a chat owns at most one channel."""
+        channel = _clean_channel(channel)
+        jid = _clean_chat_jid(jid)
+
+        def bind(document):
+            contact = document["contacts"].get(jid)
+            if contact is None:
+                raise ContactError("contact does not exist")
+            channels = document["channels"]
+            if channels.get(channel) == jid:
+                return False, _contact_result(jid, contact)
+            if jid in channels.values():
+                raise ContactError("contact is already bound to another channel")
+            channels[channel] = jid
+            return True, _contact_result(jid, contact)
+
+        return self._mutate(bind)
+
+    def unbind_channel(self, channel) -> bool:
+        channel = _clean_channel(channel)
+
+        def unbind(document):
+            if channel not in document["channels"]:
+                return False, False
+            del document["channels"][channel]
+            return True, True
+
+        return self._mutate(unbind)
+
+    def channel_chat(self, channel) -> str | None:
+        return self._read()["channels"].get(_clean_channel(channel))
 
     def rename_contact(self, jid, label) -> JsonObject:
         """Change only a contact's display label, preserving routing and cards."""
@@ -699,6 +762,11 @@ def _parser() -> argparse.ArgumentParser:
             "(15551234567@s.whatsapp.net)"
         ),
     )
+    bind = commands.add_parser("bind", help="bind a contact to a button channel")
+    bind.add_argument("channel", metavar="CHANNEL", help="button number, 1 or more")
+    bind.add_argument("chat_jid", metavar="CHAT_JID")
+    unbind = commands.add_parser("unbind", help="leave a button channel unbound")
+    unbind.add_argument("channel", metavar="CHANNEL")
     commands.add_parser("list", help="list contacts without exposing card IDs")
     commands.add_parser("count", help="print only the number of contacts")
     return parser
@@ -805,12 +873,22 @@ def main(
             return 0
         if args.command == "list":
             public = contacts.public_view()["contacts"]
+            channels = {jid: channel for channel, jid in contacts.load()["channels"].items()}
             if not public:
                 print("No contacts configured.")
             for jid, contact in sorted(public.items()):
                 cards = contact["card_count"]
                 noun = "card" if cards == 1 else "cards"
-                print(f"{contact['label']}: {jid} ({cards} {noun})")
+                button = f", button {channels[jid]}" if jid in channels else ""
+                print(f"{contact['label']}: {jid} ({cards} {noun}{button})")
+            return 0
+        if args.command == "bind":
+            contact = contacts.bind_channel(args.channel, args.chat_jid)
+            print(f"Button {_clean_channel(args.channel)} now sends to {contact['label']}.")
+            return 0
+        if args.command == "unbind":
+            contacts.unbind_channel(args.channel)
+            print(f"Button {_clean_channel(args.channel)} is unbound.")
             return 0
         if args.command == "remove":
             contact = contacts.contact(args.chat_jid)

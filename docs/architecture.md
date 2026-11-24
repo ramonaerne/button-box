@@ -18,6 +18,11 @@ root access they require.
 | `messagebox-nfc.service` | Read recipient cards and maintain NFC selection state |
 | `messagebox-dash.service` | Serve the canonical household dashboard on the Wi-Fi interface |
 
+When `MSGBOX_CHANNEL_PINS` configures button channels, routing is per button
+instead: each channel is bound to one allowed chat in the contact store,
+plays only that chat's queued messages and records only to it. An unbound
+channel fails closed, and none of the routing below applies.
+
 One exact default recipient is stored with the private contact allow-list. A
 recognized NFC selection has first priority for a standalone recording. With no
 card and no claimed inbound message, the exact sender of the newest message

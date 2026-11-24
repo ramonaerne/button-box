@@ -69,6 +69,7 @@ for path in \
   scripts/commands/messagebox-init-wifi-onboarding \
   scripts/dev/onboard.sh \
   scripts/dev/hardware-test.sh \
+  scripts/dev/virtual-buttons.py \
   scripts/messageboxctl \
   messagebox/syncloop.sh \
   systemd/messagebox-update-selector.service \
@@ -276,6 +277,8 @@ sudo install -o root -g root -m 0755 \
   "$REPO_DIR/messagebox/syncloop.sh" "$PACKAGE_DIR/syncloop.sh"
 sudo install -o root -g root -m 0755 \
   "$REPO_DIR/scripts/dev/hardware-test.sh" "$APP_DIR/dev/hardware-test.sh"
+sudo install -o root -g root -m 0755 \
+  "$REPO_DIR/scripts/dev/virtual-buttons.py" "$APP_DIR/dev/virtual-buttons.py"
 sudo rm -rf \
   "$APP_DIR/__pycache__" \
   "$APP_DIR/dashboard_static" \

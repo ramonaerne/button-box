@@ -40,6 +40,20 @@ records the facts found, the decisions taken in four question rounds
 - Audio detection handles one USB card with both capture and playback (the
   dongle). Mixer control names (`PCM`, `Mic`) may not match a cheap dongle.
 
+### Base branch (2026-11-24)
+
+Work is based on `release/v0.3.16` (upstream's working branch; the fork
+tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
+`main`:
+- The Comitup board gate already accepts the Pi Zero 2 W (and Pi 3).
+- Hold to talk now runs through `GuidedSession`. With **review before send**
+  on (the default), releasing plays the recording back, and a further tap
+  sends it.
+- Microphone capture needs a one-shot permit taken from a physical gpiozero
+  `Button` (`messagebox/mic_capture.py`, `docs/mic-access-audit.md`).
+  Channels take it from the pressed button.
+- There is a cloud transport besides wacli. Channels are wacli-only.
+
 ## Risks
 
 1. **WhatsApp linked-device logout.** If the box account's phone is offline
@@ -103,19 +117,19 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 - [ ] **T0 Upstream issue** — the human posts the issue drafted below. *AC:*
       the maintainers' answer is noted here before T1–T3 are shaped for a PR.
-- [ ] **T1 Channel bindings (upstream)** — store channel → chat with the
+- [x] **T1 Channel bindings (upstream)** — done 2026-11-24 (contacts schema v3, `messagebox-contact bind/unbind`) — store channel → chat with the
       private contacts document (atomic write, lock, 0600 as today).
       *AC:* a contacts document without channels loads unchanged, and the
       single-button box behaves exactly as before. A chat can't be bound to
       two channels. Binding a chat that isn't approved is refused. Removing an
       approved chat unbinds its channel. Card IDs, JIDs and numbers never
       appear in logs or public API output.
-- [ ] **T2 Pins (upstream)** — configure N button/LED pairs in
+- [~] **T2 Pins (upstream)** — `MSGBOX_CHANNEL_PINS` done; wiring doc moves to T8 — configure N button/LED pairs in
       `/etc/messagebox/env`. *AC:* `config/env.example` documents them.
       With only the existing `MSGBOX_BUTTON_PIN`/`MSGBOX_LED_PIN`, there is
       one channel, as today. Duplicate pins are refused at startup. The
       docs show the two-button + MOSFET LED wiring.
-- [ ] **T3 Channel runtime, hold mode (upstream)** — *AC:* a tap on button N
+- [~] **T3 Channel runtime, hold mode (upstream)** — code + tests + mock-pin smoke test done; physical check pending — *AC:* a tap on button N
       plays the oldest waiting message from channel N's chat only. A hold
       records, and release sends to channel N's chat only. An unbound
       channel gives a fail beep and sends nothing. LED N reflects only
@@ -173,6 +187,24 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       plus: both channels send/receive to the right chat, the turn rule,
       rebind confirmation, the microphone open only while recording, and a
       reboot. Then a Wi-Fi reset before shipping.
+
+### Dev tooling
+
+- [x] `scripts/dev/virtual-buttons.py`: real runtime on gpiozero mock pins,
+      driven from the terminal; always records a fake mic (tone, or
+      `--mic-file WAV`) so terminal input never opens the real microphone.
+      Installed to `/opt/messagebox/dev/`. Documented in
+      `docs/developer-onboarding.md`.
+
+### Known gaps (from T1–T3)
+
+- Messages from approved but unbound chats still queue (dashboard shows
+  them), but no button plays them.
+- Fresh install still needs a USB audio card for detection (`setup.sh` and
+  `messagebox-audio-detect.service`). A USB dongle without a mic plugged in
+  is enough.
+- If the speaker card is missing, the volume `amixer` call fails and retries
+  every loop, flooding logs (existing behaviour).
 
 ### Later / reassess
 
