@@ -80,10 +80,14 @@ def main():
     ]
     runtime_thread = threading.Thread(target=runtime.main, daemon=True)
     runtime_thread.start()
-    time.sleep(1)  # Let main() claim the pins before we touch them.
-    if not runtime_thread.is_alive():
-        print("runtime stopped; see output above")
-        return 1
+    # main() does slow startup work (sounds, recovery) before claiming the
+    # pins; touching the factory earlier finds no pins on a Pi Zero.
+    deadline = time.monotonic() + 60
+    while getattr(runtime, "led", None) is None or Device.pin_factory is None:
+        if not runtime_thread.is_alive() or time.monotonic() > deadline:
+            print("runtime stopped before claiming the pins; see output above")
+            return 1
+        time.sleep(0.1)
     factory = Device.pin_factory
     buttons = {number: factory.pin(pin) for number, pin, _ in pairs}
     leds = {number: factory.pin(pin) for number, _, pin in pairs}
