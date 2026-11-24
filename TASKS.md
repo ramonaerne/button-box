@@ -88,6 +88,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | D11 | No remote access to the gift box. Support is the Wi-Fi reset gesture plus a phone call. |
 | D12 | Confirmation: after a rebind request, that button's LED blinks fast. Holding that button for 5 s within 5 min confirms. Until then the button keeps its old chat and doesn't record. An unconfirmed rebind expires. |
 | D13 | The household picks only from a short list of approved chats (relatives) that the builder enters in the terminal. |
+| D14 | (2026-11-25, provisional) Keep **review before send** on (upstream default) for now. Revisit with a real mic before the gift ships (T12). Turning it off gives "hold to talk, release sends" (the original MODIFICATION.md idea) but removes the undo; the turn rule (T5) limits the cost of an accidental send. |
 
 Accepted defaults: each channel binds one chat (person or group). Only
 approved chats are allowed incoming. An unbound button gives a fail beep and
@@ -183,6 +184,9 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **T7b Zero 2 W Path B validation** — *AC:* on the physical box: the
       hotspot appears, Wi-Fi joins, and the Wi-Fi reset gesture keeps
       WhatsApp and bindings.
+- [ ] **T12 Decide review before send for the gift** (open, D14) — *AC:* the
+      shipped setting is chosen after testing with a real mic and a child-like
+      user, and is recorded in D14.
 - [ ] **T11 Physical acceptance** — the per-unit run (`docs/box-acceptance.md`)
       plus: both channels send/receive to the right chat, the turn rule,
       rebind confirmation, the microphone open only while recording, and a
@@ -190,6 +194,9 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 ### Dev tooling
 
+- [x] `scripts/dev/push-code.sh user@host`: copies already-installed runtime
+      Python and the runner to a provisioned test box and restarts button,
+      poller and dashboard (not sync). Verified on the Pi Zero 2 W.
 - [x] `scripts/dev/virtual-buttons.py`: real runtime on gpiozero mock pins,
       driven from the terminal; always records a fake mic (tone, or
       `--mic-file WAV`) so terminal input never opens the real microphone.
@@ -205,6 +212,41 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
   is enough.
 - If the speaker card is missing, the volume `amixer` call fails and retries
   every loop, flooding logs (existing behaviour).
+
+### Hold flow with review on (as observed on the Pi, 2026-11-25)
+
+1. Press and hold: the press cue plays, and recording starts once it ends
+   (LED on).
+2. Release: recording stops. Under 1.5 s or not meaningful → "deleted" cue,
+   nothing sent.
+3. Review voice line, then playback of the recording.
+4. Send prompt voice line.
+5. One short press within **10 s** sends it (confirmation cue, then the
+   swoosh once sent). Presses during the playback are discarded.
+6. No press → "deleted" cue + "not sent"; nothing is sent. A recording that
+   hits the maximum length always goes through review.
+
+This is not obvious to a first-time user (see T12).
+
+### Setup notes from the first Zero 2 W install (2026-11-24/25)
+
+- The C-Media dongle's mixer controls are `Speaker`, `Mic` and
+  `Auto Gain Control`. `MSGBOX_SPEAKER_CONTROL=Speaker` must be set by hand
+  (T8).
+- An env file can lack `MSGBOX_CHANNEL_PINS`; add it by hand.
+- `messagebox-dev-onboard` also enables NFC. Without a reader the NFC service
+  fails and the script disables all services, so answer "n" and enable
+  `button sync poller` by hand.
+- The first send right after the services start can fail with "store is
+  locked" while sync connects. The outbox retries.
+- Receiving cannot be tested while the box is linked to the tester's own
+  number: messages from the box account (including "message yourself" and
+  groups where only you post) are skipped by design. Test with a second
+  account, or give the box its own number. Receiving on the Pi is
+  **not yet verified**.
+- Run wacli as the `messagebox` user with
+  `WACLI_STORE_DIR=/var/lib/messagebox/wacli`; using another user creates a
+  separate, stray linked session.
 
 ### Later / reassess
 
