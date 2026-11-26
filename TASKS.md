@@ -16,7 +16,7 @@ records the facts found, the decisions taken in four question rounds
 | **Hold** | Press still down after the hold threshold ("long press"). |
 | **Hold mode** | Upstream `hold_release`: tap plays the next waiting message; hold records; release sends. |
 | **Guided mode** | Upstream `tap_review`, the upstream default: tap plays waiting messages, then a countdown, recording, and "press to send". |
-| **Turn rule** | Per channel: after one message is sent, that channel can't send again until a reply from its chat has been **played**. |
+| **Turn rule** | Per channel: after N messages are sent (`sends_per_reply`), that channel can't send again until a newer reply from its chat has been **played** (D15). |
 | **Box account** | The single WhatsApp account/number the box uses. It's fixed, and the household never relinks it. |
 
 ## Facts found in the repo
@@ -77,7 +77,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | --- | --- |
 | D1 | Upstream default stays guided mode. This box (and the gift) runs hold mode via the existing setting. Both modes must work with channels before an upstream PR. |
 | D2 | Fork; PR upstream wherever it makes sense. Build channels as a generic N-button feature. |
-| D3 | Limit = turn rule, per channel, no other cap. Several replies play one after another, oldest first. |
+| D3 | Limit = turn rule, per channel, no other cap (N set by D15). Several replies play one after another, oldest first. |
 | D4 | Setup: Path A (terminal) for the builder's testing; Path B (hotspot + browser) for the gift household. |
 | D5 | WhatsApp only. Keep the send/receive calls in one place; Signal comes later. |
 | D6 | The turn unlocks when a reply has been **played**, not merely received. |
@@ -89,6 +89,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | D12 | Confirmation: after a rebind request, that button's LED blinks fast. Holding that button for 5 s within 5 min confirms. Until then the button keeps its old chat and doesn't record. An unconfirmed rebind expires. |
 | D13 | The household picks only from a short list of approved chats (relatives) that the builder enters in the terminal. |
 | D14 | (2026-11-25, provisional) Keep **review before send** on (upstream default) for now. Revisit with a real mic before the gift ships (T12). Turning it off gives "hold to talk, release sends" (the original MODIFICATION.md idea) but removes the undo; the turn rule (T5) limits the cost of an accidental send. |
+| D15 | (2026-11-26) Replaces the one-turn rule: up to N sends per channel between replies, N set in the dashboard (off/1/2/3/5, default off). Reset when a newer reply is **played**, not just received. Per channel. Limit reached → wait tone only, mic stays closed. Not a security boundary: the dashboard has no login. |
 
 Accepted defaults: each channel binds one chat (person or group). Only
 approved chats are allowed incoming. An unbound button gives a fail beep and
@@ -142,13 +143,17 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **T4 Guided mode with channels (upstream, before the PR)** —
       *AC:* the guided flow (play waiting messages, then countdown, record,
       press to send) works per channel with the same isolation as T3.
-- [ ] **T5 Turn rule (upstream setting)** — *AC:* the setting is off by
-      default, and when off, behaviour is unchanged. When it's on: after a
-      send is accepted into the outbox, a hold on that channel plays the
-      "wait" tone and records nothing, until a message from that chat that
-      arrived after the send has been played. A failed send doesn't use the
-      turn. State survives a reboot. A rebind resets it. In a group, any
-      member's reply counts. The two channels are independent.
+- [ ] **T5 Sends per reply (upstream setting, D15)** — settings key
+      `sends_per_reply`, one of off/1/2/3/5, default off, editable in the
+      dashboard like `max_recording_seconds`. *AC:* when off, behaviour is
+      unchanged (wacli test). When N is set: each send accepted into the
+      outbox counts for its channel; discarded, cancelled-in-review and
+      failed sends don't. At N, a hold on that channel plays the "wait" tone
+      and never opens the mic. The count resets when a message from that
+      chat that arrived after the last counted send has been **played**; in a
+      group any member's reply counts. Channels count independently.
+      Counters survive a reboot, a rebind resets that channel, and lowering N
+      applies at once. Fleet fixture regenerated (`settings_contract.py`).
 - [ ] **T6 Dashboard binding with confirmation (upstream)** — show the
       channels and request rebinds. *AC:* a request makes LED N blink
       fast. Holding button N for 5 s within 5 min applies it. A shorter
@@ -187,10 +192,17 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **T12 Decide review before send for the gift** (open, D14) — *AC:* the
       shipped setting is chosen after testing with a real mic and a child-like
       user, and is recorded in D14.
+- [ ] **T13 Dashboard message audio off (upstream setting)** — the no-login
+      dashboard streams received voice messages (`/audio/<f>`) to anyone on
+      the Wi-Fi. *AC:* an env setting (e.g. `MSGBOX_DASH_AUDIO=0`, documented
+      in `config/env.example`, settable at install) removes playback: the
+      endpoint returns 404 and the UI hides the play controls. Default keeps
+      today's behaviour, and a wacli test proves it.
 - [ ] **T11 Physical acceptance** — the per-unit run (`docs/box-acceptance.md`)
       plus: both channels send/receive to the right chat, the turn rule,
       rebind confirmation, the microphone open only while recording, and a
-      reboot. Then a Wi-Fi reset before shipping.
+      reboot. After a fresh boot, the **first** hold on each button records
+      and sends (known gap above); recheck wiring if it fails. Then a Wi-Fi reset before shipping.
 
 ### Dev tooling
 
@@ -205,6 +217,14 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 ### Known gaps (from T1–T3)
 
+- 2026-11-26, physical box: a hold on red (channel 2) did nothing (no LED,
+  no recording) while a tap played its messages; after boot, channel 1
+  only sent after a message had been received. Not reproduced yet. Suspect
+  the silent `except speaker.SpeakerBusy: return False` in the press
+  handler or a mic open failure; capture `journalctl -u
+  messagebox-button.service` during a failing hold.
+  Seen again after a reboot, only on the first press; could also be a loose
+  connection. Verified in T11.
 - Messages from approved but unbound chats still queue (dashboard shows
   them), but no button plays them.
 - Fresh install still needs a USB audio card for detection (`setup.sh` and
@@ -230,6 +250,8 @@ This is not obvious to a first-time user (see T12).
 
 ### Setup notes from the first Zero 2 W install (2026-11-24/25)
 
+- The hostname must be `button-box-<id>` or `message-box-<id>`; otherwise
+  the dashboard and Wi-Fi onboarding refuse to start.
 - The C-Media dongle's mixer controls are `Speaker`, `Mic` and
   `Auto Gain Control`. `MSGBOX_SPEAKER_CONTROL=Speaker` must be set by hand
   (T8).
