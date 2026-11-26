@@ -143,7 +143,7 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **T4 Guided mode with channels (upstream, before the PR)** —
       *AC:* the guided flow (play waiting messages, then countdown, record,
       press to send) works per channel with the same isolation as T3.
-- [ ] **T5 Sends per reply (upstream setting, D15)** — settings key
+- [~] **T5 Sends per reply (upstream setting, D15)** — code + tests done; physical check pending — settings key
       `sends_per_reply`, one of off/1/2/3/5, default off, editable in the
       dashboard like `max_recording_seconds`. *AC:* when off, behaviour is
       unchanged (wacli test). When N is set: each send accepted into the

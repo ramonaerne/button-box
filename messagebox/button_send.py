@@ -63,7 +63,7 @@ from messagebox.settings import (
     in_quiet_hours, RINGTONES, SettingsReader, load_ring_lamp_schedule, normalize_ringtone_id, ringtone_path,
 )
 from messagebox.cloud_device import CloudDeviceClient, CloudDeviceError, CloudSendRejected, CloudSendUncertain, CloudVoiceNotFound, atomic_json
-from messagebox import cloud_runtime, cloud_claim, cloud_quiet, message_age, sound_pack
+from messagebox import cloud_runtime, cloud_claim, cloud_quiet, message_age, send_limit, sound_pack
 from messagebox.cloud_runtime import CloudRuntimeError
 
 
@@ -107,6 +107,7 @@ LISTENED_POLL_S = float(os.environ.get("MSGBOX_LISTENED_POLL_S", "0.2"))
 LISTENED_RETRY_S = float(os.environ.get("MSGBOX_LISTENED_RETRY_S", "30"))
 RING_REQUEST_FILE = str(RUNTIME_DIR / "ring-request")
 MORNING_RING_FILE = DEFAULT_STATE_DIR / "morning-ring.json"
+SEND_LIMIT_FILE = DEFAULT_STATE_DIR / "channel-sends.json"
 MORNING_RING_GRACE_S = 30 * 60
 NFC_SELECTION_TTL_S = float(os.environ.get("MSGBOX_NFC_SELECTION_TTL_S", "30"))
 NFC_ANNOUNCEMENT_POLL_S = float(
@@ -490,6 +491,7 @@ _recording = False
 _capture_permit = None
 channels = []
 _channel_chat = None
+_channel_id = None
 _guided_active = False
 outbox_store = None
 receipt_store = None
@@ -2418,6 +2420,12 @@ def play_next_legacy(chat=None):
         )
         if transport_mode() == "cloud":
             cloud_runtime.record_played(meta)
+        if chat is not None and _channel_id is not None:
+            try:
+                send_limit.record_played(
+                    SEND_LIMIT_FILE, _channel_id, chat, int(path.name.split("-", 1)[0]))
+            except (OSError, ValueError) as exc:
+                log(f"send limit not reset: {exc}")
         react_played(meta)
         try:
             wait_s = time.time() - int(path.name.split("-", 1)[0]) / 1000
@@ -2453,6 +2461,15 @@ def record_and_send_legacy(settings=None, pressed_at=None, *, card_prompt_uid=No
             play_next_legacy(_channel_chat)
         else:
             play_next_legacy()
+        return
+    if channels and send_limit.limit_reached(
+            SEND_LIMIT_FILE, _channel_id, _channel_chat, settings.get("sends_per_reply", 0)):
+        # Checked before the microphone opens so nothing is recorded and lost.
+        log(f"channel {_channel_id} send limit reached")
+        log_event("send_limit_reached", channel=_channel_id)
+        # shortcut: reuses the "oops" cue as the wait tone; add a distinct cue if it is confused with "unbound"
+        beep("fail")
+        wait_for_stable_open()
         return
     if card_state == "expired":
         block_unavailable_recipient()
@@ -2495,6 +2512,12 @@ def record_and_send_legacy(settings=None, pressed_at=None, *, card_prompt_uid=No
         refresh_led(force=True)
         if should_ring_after_unsent_session(outcome, bool(queued()), quiet_hours(settings)):
             ring_alert(source="queued_after_unsent")
+    if channels and outcome == "approved":
+        try:
+            send_limit.record_send(SEND_LIMIT_FILE, _channel_id, _channel_chat, int(time.time() * 1000))
+        except OSError as exc:
+            # The message is already in the outbox; a lost count must not fail it.
+            log(f"send limit not recorded: {exc}")
 
 
 
@@ -2750,7 +2773,7 @@ def claim_only_loop():
 
 def dispatch_press(closed_at, *, before_dispatch=None):
     """Route a confirmed press; with channels, only to the pressed button's chat."""
-    global button, led, _channel_chat
+    global button, led, _channel_chat, _channel_id
     if not channels:
         return handle_confirmed_press(closed_at, before_dispatch=before_dispatch)
     channel = next((ch for ch in channels if ch["button"].is_pressed), None)
@@ -2768,11 +2791,11 @@ def dispatch_press(closed_at, *, before_dispatch=None):
     # Other buttons are ignored until this interaction ends; the capture
     # permit is taken from this channel's own physical button.
     idle_button, idle_led = button, led
-    button, led, _channel_chat = channel["button"], channel["led"], chat
+    button, led, _channel_chat, _channel_id = channel["button"], channel["led"], chat, channel["id"]
     try:
         return handle_confirmed_press(closed_at, before_dispatch=before_dispatch)
     finally:
-        button, led, _channel_chat = idle_button, idle_led, None
+        button, led, _channel_chat, _channel_id = idle_button, idle_led, None, None
 
 
 def handle_confirmed_press(closed_at, *, card_prompt_uid=None, before_dispatch=None):

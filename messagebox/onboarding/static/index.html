@@ -90,6 +90,9 @@
         <label for="max-recording">Maximum message length</label>
         <select id="max-recording" name="max_recording_seconds"><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">120 seconds</option></select>
         <p class="field-help">Applies to both modes. Tap to talk deletes the recording if there is no second tap before the limit. Recordings under 1.5 seconds or without voice are deleted.</p>
+        <label for="sends-per-reply">Messages per reply</label>
+        <select id="sends-per-reply" name="sends_per_reply"><option value="0">No limit</option><option value="1">1 message</option><option value="2">2 messages</option><option value="3">3 messages</option><option value="5">5 messages</option></select>
+        <p class="field-help">Boxes with one button per chat only. After this many messages to a chat, that button waits until a newer reply from the chat has been played.</p>
 
         <h2>Sounds and notifications</h2>
         <label for="ringtone">Ringtone</label>

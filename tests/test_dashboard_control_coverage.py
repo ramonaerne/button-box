@@ -34,6 +34,7 @@ CONTROL_CASES = {
     "after-listening-play-only": ["BB-SET-02"],
     "after-listening-invite-reply": ["BB-SET-02"],
     "max-recording": ["BB-SET-02"],
+    "sends-per-reply": ["BB-SET-02"],
     "ringtone": ["BB-SET-02"],
     "preview-ringtone": ["BB-AUDIO-02"],
     "master-volume": ["BB-SET-02"],

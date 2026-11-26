@@ -42,6 +42,8 @@ class CloudSettingsVoiceTests(unittest.TestCase):
         before = self.runtime.settings.path.read_bytes()
         loaded, warning = old.SettingsStore(self.runtime.settings.path, environ={'MSGBOX_TRANSPORT': 'cloud'}).load()
         self.assertFalse(warning)
+        # The historical reader predates sends_per_reply and skips it.
+        expected = {key: value for key, value in expected.items() if key != 'sends_per_reply'}
         self.assertEqual(loaded, {**expected, 'voice_pack': 'jessica'})
         self.assertEqual(self.runtime.settings.path.read_bytes(), before)
         namespace = {'json': json, 'CloudRuntimeError': RuntimeError}

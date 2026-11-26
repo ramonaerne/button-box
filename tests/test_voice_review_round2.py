@@ -420,7 +420,9 @@ class VoiceRoundTwoTests(unittest.TestCase):
         self.assertEqual(original['revision'], 2)
         self.assertFalse(path.with_suffix('.voice-selection.json').exists())
         before = path.read_bytes()
-        self.assertEqual(SettingsStore(path, environ={'MSGBOX_TRANSPORT': 'wacli'}).load(), (original, False))
+        # Documents written before sends_per_reply load with the limit off.
+        self.assertEqual(SettingsStore(path, environ={'MSGBOX_TRANSPORT': 'wacli'}).load(),
+                         ({**original, 'sends_per_reply': 0}, False))
         self.assertEqual(path.read_bytes(), before)
         for pack in (*VOICE_PACKS, None, 'unknown', []):
             document = {**defaults({}), 'revision': 7, 'voice_pack': pack}

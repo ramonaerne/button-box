@@ -158,6 +158,114 @@ class ChannelRoutingTests(unittest.TestCase):
         self.assertEqual(io.call_args.args[0], GRANDMA)
         self.assertEqual(session.return_value.run.call_args.kwargs["recipient"], GRANDMA)
 
+    def limited_hold(self, channel_id, outcome="approved"):
+        with mock.patch.object(button_send, "_channel_id", channel_id), mock.patch.object(
+            button_send, "_channel_chat", GRANDMA
+        ), mock.patch.object(
+            button_send, "acknowledge_and_classify_legacy_press", return_value="record"
+        ), mock.patch.object(button_send, "reconcile_card_selections"), mock.patch.object(
+            button_send, "PiGuidedIO"
+        ) as io, mock.patch.object(button_send, "GuidedSession") as session, mock.patch.object(
+            button_send, "mark_queue_known"
+        ), mock.patch.object(button_send, "sound_pack"):
+            session.return_value.run.return_value = outcome
+            button_send.record_and_send_legacy(self.settings, pressed_at=0.0)
+        return io
+
+    def play_reply(self, name):
+        self.queue_from(GRANDMA, name)
+        with mock.patch.object(button_send, "_channel_id", "1"), mock.patch.object(
+            button_send, "play_pending_listened"
+        ), mock.patch.object(button_send, "inbound_audio_authorized", return_value=True), mock.patch.object(
+            button_send, "play_message_start"
+        ), mock.patch.object(button_send, "play_sound"), mock.patch.object(
+            button_send, "play_moment"
+        ), mock.patch.object(
+            button_send, "archive_played_file", side_effect=lambda _queue, path, **_: path.unlink()
+        ), mock.patch.object(button_send, "react_played"):
+            button_send.play_next_legacy(GRANDMA)
+
+    def test_sends_per_reply_blocks_hold_until_newer_reply_is_played(self):
+        limit_file = Path(self.directory.name) / "channel-sends.json"
+        self.settings = {**self.settings, "sends_per_reply": 1}
+        with mock.patch.object(button_send, "SEND_LIMIT_FILE", limit_file), mock.patch.object(
+            button_send.time, "time", return_value=5.0
+        ):
+            self.assertTrue(self.limited_hold("1").called)
+            # Limit reached: wait tone, and the microphone path never starts.
+            self.assertFalse(self.limited_hold("1").called)
+            button_send.beep.assert_called_with("fail")
+            self.assertNotIn(GRANDMA, limit_file.read_text(encoding="utf-8"))
+
+            # A reply queued before the send does not unlock the channel.
+            self.play_reply("4000-old.wav")
+            self.assertFalse(self.limited_hold("1").called)
+            self.play_reply("6000-new.wav")
+            self.assertTrue(self.limited_hold("1").called)
+
+    def test_deleted_recordings_do_not_use_the_limit(self):
+        limit_file = Path(self.directory.name) / "channel-sends.json"
+        self.settings = {**self.settings, "sends_per_reply": 1}
+        with mock.patch.object(button_send, "SEND_LIMIT_FILE", limit_file):
+            self.limited_hold("1", outcome="deleted")
+            self.limited_hold("1", outcome="empty")
+            self.assertTrue(self.limited_hold("1").called)
+
+
+class SendLimitTests(unittest.TestCase):
+    def setUp(self):
+        self.directory = tempfile.TemporaryDirectory()
+        self.path = Path(self.directory.name) / "channel-sends.json"
+
+    def tearDown(self):
+        self.directory.cleanup()
+
+    def test_counts_per_channel_and_off_never_limits(self):
+        from messagebox import send_limit
+
+        send_limit.record_send(self.path, "1", GRANDMA, 100)
+        send_limit.record_send(self.path, "1", GRANDMA, 200)
+        self.assertFalse(send_limit.limit_reached(self.path, "1", GRANDMA, 0))
+        self.assertFalse(send_limit.limit_reached(self.path, "1", GRANDMA, 3))
+        self.assertTrue(send_limit.limit_reached(self.path, "1", GRANDMA, 2))
+        # Lowering the limit applies at once; the other channel is independent.
+        self.assertTrue(send_limit.limit_reached(self.path, "1", GRANDMA, 1))
+        self.assertFalse(send_limit.limit_reached(self.path, "2", FAMILY, 1))
+
+    def test_rebind_and_unreadable_state_start_at_zero(self):
+        from messagebox import send_limit
+
+        send_limit.record_send(self.path, "1", GRANDMA, 100)
+        self.assertFalse(send_limit.limit_reached(self.path, "1", FAMILY, 1))
+        self.path.write_text("broken", encoding="utf-8")
+        self.assertFalse(send_limit.limit_reached(self.path, "1", GRANDMA, 1))
+
+
+class WacliSingleButtonLimitTests(unittest.TestCase):
+    def test_single_button_box_never_consults_the_limit(self):
+        settings = {**defaults({}), "sends_per_reply": 1}
+        context = {"contact": {"jid": GRANDMA}, "via_card": False}
+        with mock.patch.object(button_send, "channels", []), mock.patch.object(
+            button_send, "send_limit"
+        ) as limit, mock.patch.object(
+            button_send, "claim_fresh_card_intent", return_value=("none", None)
+        ), mock.patch.object(button_send, "recording_recipient_context", return_value=context), mock.patch.object(
+            button_send, "acknowledge_and_classify_legacy_press", return_value="record"
+        ), mock.patch.object(button_send, "reconcile_card_selections"), mock.patch.object(
+            button_send, "transport_mode", return_value="wacli"
+        ), mock.patch.object(button_send, "PiGuidedIO"), mock.patch.object(
+            button_send, "GuidedSession"
+        ) as session, mock.patch.object(button_send, "mark_queue_known"), mock.patch.object(
+            button_send, "refresh_led"
+        ), mock.patch.object(button_send, "queued", return_value=[]), mock.patch.object(
+            button_send, "quiet_hours", return_value=False
+        ), mock.patch.object(button_send, "sound_pack"):
+            session.return_value.run.return_value = "approved"
+            button_send.record_and_send_legacy(settings, pressed_at=0.0)
+            button_send.record_and_send_legacy(settings, pressed_at=0.0)
+        self.assertEqual(session.return_value.run.call_count, 2)
+        self.assertEqual(limit.mock_calls, [])
+
 
 if __name__ == "__main__":
     unittest.main()

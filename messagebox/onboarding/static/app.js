@@ -991,6 +991,7 @@ function populateSettings(payload) {
   document.getElementById("review-before-send").checked = value.review_before_send;
   document.querySelector(`[name="after_listening"][value="${value.after_listening}"]`).checked = true;
   document.getElementById("max-recording").value = String(value.max_recording_seconds);
+  document.getElementById("sends-per-reply").value = String(value.sends_per_reply ?? 0);
   document.getElementById("ringtone").value = value.ringtone_id;
   document.getElementById("master-volume").value = String(value.master_volume_percent);
   document.getElementById("volume-output").value = `${value.master_volume_percent}%`;
@@ -1027,6 +1028,7 @@ function settingsCandidate() {
     review_before_send: document.getElementById("review-before-send").checked,
     after_listening: document.querySelector('[name="after_listening"]:checked').value,
     max_recording_seconds: Number(document.getElementById("max-recording").value),
+    sends_per_reply: Number(document.getElementById("sends-per-reply").value),
     ringtone_id: document.getElementById("ringtone").value,
     master_volume_percent: Number(document.getElementById("master-volume").value),
     arrival_signal: document.getElementById("arrival-signal").value,

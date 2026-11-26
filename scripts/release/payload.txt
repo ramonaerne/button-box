@@ -62,6 +62,7 @@ messagebox/played_history.py
 messagebox/qrcodegen.py
 messagebox/remote_access.py
 messagebox/runtime_paths.py
+messagebox/send_limit.py
 messagebox/settings.py
 messagebox/software.py
 messagebox/sound_pack.py

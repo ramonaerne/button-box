@@ -86,6 +86,7 @@ rsync -azR \
   "$REPO_DIR/./messagebox/listened_receipts.py" \
   "$REPO_DIR/./messagebox/message_age.py" \
   "$REPO_DIR/./messagebox/played_history.py" \
+  "$REPO_DIR/./messagebox/send_limit.py" \
   "$REPO_DIR/./messagebox/nfc.py" \
   "$REPO_DIR/./messagebox/nfc_state.py" \
   "$REPO_DIR/./messagebox/runtime_paths.py" \
