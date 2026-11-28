@@ -2,6 +2,7 @@ import io
 import json
 import os
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from urllib.parse import urlencode
@@ -35,6 +36,8 @@ class DashboardRenameTests(unittest.TestCase):
         self.engine.clock = lambda: 1000.0
         self.engine.state_path = root / "pairing.json"
         self.engine.recipients = self.setup
+        self.engine._lock = threading.RLock()
+        self.engine.live_store = root / "wacli"  # absent: nothing to adopt
         state = self.engine._default_state()
         state.update(status="ready", phone_hint="Linked account", eligible_count=1)
         self.engine.state_path.write_text(json.dumps(state))

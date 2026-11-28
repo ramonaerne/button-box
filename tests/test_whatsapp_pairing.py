@@ -704,6 +704,33 @@ class WhatsAppPairingTests(unittest.TestCase):
         self.assertEqual(engine.public_state()["status"], "idle")
         self.assertFalse(engine.sync_pause_path.exists())
 
+    def test_terminal_linked_store_is_adopted_once_wacli_confirms_auth(self):
+        self.live_store.mkdir()
+        (self.live_store / "wacli.db").write_text("private", encoding="ascii")
+        recipients = RecipientSetup(
+            state_path=self.root / "recipient-state.json",
+            contacts_path=self.root / "contacts.json",
+            events_path=self.root / "events.jsonl",
+            voice_request_path=self.root / "voice-request.json",
+        )
+
+        state = self.engine(runner=WacliRunner(authenticated=True), recipient_setup=recipients).public_state()
+        self.assertEqual(state["status"], "ready")
+        self.assertEqual(state["phone_hint"], "WhatsApp number ending in 0123")
+
+        # No discovery file yet: the list is empty instead of failing, so a refresh can fill it.
+        listed = self.engine(runner=WacliRunner(authenticated=True), recipient_setup=recipients).recipient_list()
+        self.assertEqual(listed["recipients"], [])
+
+    def test_unauthenticated_or_empty_store_is_not_adopted(self):
+        self.assertEqual(self.engine(runner=WacliRunner(authenticated=True)).public_state()["status"], "idle")
+        self.live_store.mkdir()
+        (self.live_store / "wacli.db").write_text("private", encoding="ascii")
+        engine = self.engine(runner=WacliRunner(authenticated=False))
+        self.assertEqual(engine.public_state()["status"], "idle")
+        with self.assertRaisesRegex(PairingError, "whatsapp_not_ready"):
+            engine.recipient_list()
+
     def test_opening_on_unlinked_box_pauses_sync(self):
         engine = self.engine()
 

@@ -231,9 +231,9 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **Reset reads channel pin 1** — `onboarding/reset.py` uses the first
       button of `MSGBOX_CHANNEL_PINS` when set. Not needed while
       `MSGBOX_BUTTON_PIN=25` is in the env.
-- [ ] **Keep WhatsApp linked across a reset** — the pairing engine treats a
-      filled live wacli store as linked, so setup after a reset skips the QR
-      step. Relinking stays possible via the dashboard's unlink.
+- [~] **Keep WhatsApp linked across a reset** — done 2026-11-28 (needed for
+      button binding on a terminal-linked box): an idle pairing engine adopts a
+      non-empty live store once `wacli auth status` confirms it. Pi check pending.
 - [ ] **Both-button reset gesture** — see T7 discussion (power-on, both
       buttons).
 

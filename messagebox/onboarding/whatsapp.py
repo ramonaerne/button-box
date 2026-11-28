@@ -420,7 +420,29 @@ class PairingEngine:
         self._write_state(state)
         return self.public_state()
 
+    def _adopt_terminal_link(self):
+        """Count a store linked outside this engine (terminal setup) as ready.
+
+        Only an idle engine with a non-empty live store adopts it, and only once
+        wacli confirms the account is authenticated; unlink still removes it.
+        """
+        if self._load_state()["status"] != "idle":
+            return
+        with self._lock:
+            if self._load_state()["status"] != "idle" or not self._live_store_in_use():
+                return
+            try:
+                auth = self._run_wacli(
+                    self.live_store, ["--read-only", "--json", "auth", "status"], timeout=15
+                )
+                phone_hint = _masked_phone(_json_document(auth.stdout)) if auth.returncode == 0 else None
+            except (OSError, PairingError, subprocess.SubprocessError):
+                return
+            if phone_hint is not None:
+                self._set_state("ready", phone_hint=phone_hint)
+
     def public_state(self):
+        self._adopt_terminal_link()
         with self._lock:
             state = self._load_state()
             return {
@@ -563,6 +585,7 @@ class PairingEngine:
             return self._set_state("idle")
 
     def _require_ready(self):
+        self._adopt_terminal_link()
         if self._load_state()["status"] != "ready":
             raise PairingError("whatsapp_not_ready")
 
@@ -626,6 +649,9 @@ class PairingEngine:
                 raise PairingError("recipient_refresh_failed")
             candidates = eligible_conversations(chats_document, groups=groups_document)
             self._write_candidates(candidates, self.candidates_path)
+        elif not self.candidates_path.exists():
+            # An adopted terminal link has no discovery list until the first refresh.
+            candidates = []
         else:
             try:
                 document = json.loads(self.candidates_path.read_text(encoding="utf-8"))
