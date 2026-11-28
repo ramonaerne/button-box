@@ -126,7 +126,10 @@ class DashboardContactTests(unittest.TestCase):
                 raise dashboard.PairingError("button_chat_taken")
             return {"recipients": []}
 
-        engine = SimpleNamespace(recipient_bind=bind)
+        engine = SimpleNamespace(
+            recipient_bind=bind,
+            recipient_unbind=lambda channel: calls.append(("unbind", channel)) or {"recipients": []},
+        )
         with patch.object(dashboard, "pairing_engine", return_value=engine), patch.dict(
             "os.environ", {"MSGBOX_CHANNEL_PINS": "25:24,8:23"}
         ):
@@ -141,8 +144,13 @@ class DashboardContactTests(unittest.TestCase):
             code, result = self.post_form(
                 "/recipients/bind", {"channel": "1", "token": "taken-token-000000001"}
             )
+            self.assertEqual(self.post_form("/recipients/unbind", {"channel": "2"})[0], 200)
+            self.assertEqual(self.post_form("/recipients/unbind", {"channel": "9"})[0], 409)
         self.assertEqual((code, result["error"]), (409, "That chat is already on the other button"))
-        self.assertEqual(calls, [("2", "group-token-000000001"), ("1", "taken-token-000000001")])
+        self.assertEqual(
+            calls,
+            [("2", "group-token-000000001"), ("1", "taken-token-000000001"), ("unbind", "2")],
+        )
 
     def test_recipient_selection_rejects_name_field(self):
         engine = SimpleNamespace(recipient_select_phone=lambda phone: {})

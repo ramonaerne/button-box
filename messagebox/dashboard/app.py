@@ -1413,6 +1413,7 @@ class Handler(BaseHTTPRequestHandler):
             "/recipients/rename",
             "/recipients/defer",
             "/recipients/bind",
+            "/recipients/unbind",
         }:
             payload = self._form_body()
             if payload is None:
@@ -1450,6 +1451,10 @@ class Handler(BaseHTTPRequestHandler):
                     if set(payload) != {"channel", "token"} or payload["channel"] not in configured_channels():
                         raise PairingError("recipient_request_invalid")
                     result = engine.recipient_bind(payload["channel"], payload["token"])
+                elif url.path == "/recipients/unbind":
+                    if set(payload) != {"channel"} or payload["channel"] not in configured_channels():
+                        raise PairingError("recipient_request_invalid")
+                    result = engine.recipient_unbind(payload["channel"])
                 elif url.path == "/recipients/rename":
                     if set(payload) != {"token", "name"}:
                         raise PairingError("recipient_request_invalid")

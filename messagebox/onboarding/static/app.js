@@ -370,9 +370,10 @@ function recipientRow(recipient, actions = []) {
     ? " · name unavailable — refresh WhatsApp to retry"
     : "";
   meta.className = "recipient-secondary";
-  meta.textContent = recipient.is_default
-    ? `${recipient.kind} · default${identity}${metadata}${tagCopy}`
-    : `${recipient.kind}${identity}${metadata}${tagCopy}`;
+  const role = channelBox()
+    ? (recipient.button ? ` · ${buttonNames[recipient.button]}` : "")
+    : (recipient.is_default ? " · default" : "");
+  meta.textContent = `${recipient.kind}${role}${identity}${metadata}${tagCopy}`;
   copy.append(name, meta);
   row.append(copy);
   if (actions.length) {
@@ -486,9 +487,26 @@ function renderRecipientManager(data) {
   document.getElementById("continue-nfc").textContent = currentState?.mode === "RUNTIME"
     ? "Pair a card"
     : "Continue to Family cards";
+  const buttons = channelBox();
+  // Channel boxes route by button: no default recipient and no Family cards.
+  document.querySelector("#recipient-manager-view .manager-next").hidden = buttons;
+  document.getElementById("manager-nfc-actions").hidden = buttons;
+  document.getElementById("manager-lede").textContent = buttons
+    ? "Put an allowed chat on the green or red button. Tap plays its messages; hold records a reply to it."
+    : "Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.";
   const configured = data.recipients.filter((recipient) => recipient.configured);
   const available = data.recipients.filter((recipient) => recipient.available && !recipient.configured);
   document.getElementById("configured-recipient-list").replaceChildren(...configured.map((recipient) => {
+    if (buttons) {
+      const actions = recipient.is_default ? [] : [{ action: "remove", label: "Remove" }];
+      if (recipient.kind === "person") actions.unshift({
+        action: "rename",
+        label: recipient.label === recipient.secondary_label ? "Add name" : "Rename",
+      });
+      const row = recipientRow(recipient, actions);
+      row.append(buttonPicker(recipient));
+      return row;
+    }
     const actions = currentState?.mode === "RUNTIME"
       ? [{ action: "pair-card", label: "Pair card" }]
       : [];
@@ -532,6 +550,36 @@ async function loadRecipients({ refresh = false, manager = false } = {}) {
   } catch (error) {
     status.textContent = error.message;
     throw error;
+  }
+}
+
+function buttonPicker(recipient) {
+  const label = document.createElement("label");
+  label.className = "recipient-button";
+  label.textContent = "Button ";
+  const select = document.createElement("select");
+  select.append(new Option("No button", "", false, !recipient.button), ...(currentState?.channels || []).map(
+    (channel) => new Option(buttonNames[channel.id] || `Button ${channel.id}`, channel.id, false, recipient.button === channel.id),
+  ));
+  select.addEventListener("change", () => moveToButton(recipient, select));
+  label.append(select);
+  return label;
+}
+
+async function moveToButton(recipient, select) {
+  select.disabled = true;
+  const status = document.getElementById("manager-status");
+  try {
+    // A chat owns one button: free its current one before binding another.
+    let data = recipient.button
+      ? await formRequest("/recipients/unbind", { channel: recipient.button })
+      : null;
+    if (select.value) data = await formRequest("/recipients/bind", { channel: select.value, token: recipient.token });
+    renderRecipientManager(data);
+    status.textContent = "Saved.";
+  } catch (error) {
+    await loadRecipients({ manager: true });
+    status.textContent = error.message;
   }
 }
 
@@ -992,14 +1040,16 @@ function renderSetup(state) {
     taskStatus("Connect Wi-Fi", progress.wifi, activeSetup ? "#continue" : "#advanced"),
     taskStatus(cloud ? "Press the button and name your box" : "Link WhatsApp", progress.whatsapp, cloud ? cloudDashboard : "#whatsapp"),
     channelBox(state)
-      ? taskStatus("Choose chats for the green and red buttons", progress.recipient, "#buttons")
+      ? taskStatus("Choose chats for the green and red buttons", progress.recipient, activeSetup ? "#buttons" : "#recipients")
       : taskStatus("Choose a default recipient", progress.recipient, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
     ...(channelBox(state) ? [] : [
       taskStatus("Receive, play, record, and send a test message", progress.first_message, activeSetup ? "#continue" : "#activity"),
     ]),
   );
   document.getElementById("optional-tasks").replaceChildren(
-    taskStatus("Pair Family cards", progress.nfc, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
+    ...(channelBox(state) ? [] : [
+      taskStatus("Pair Family cards", progress.nfc, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
+    ]),
     taskStatus("Personalize button, sounds, and quiet hours", "optional", cloud ? cloudDashboard : "#settings"),
   );
 }
@@ -1072,6 +1122,7 @@ function populateSettings(payload) {
   document.getElementById("quiet-end").value = value.quiet_hours.end;
   document.getElementById("timezone").value = value.timezone;
   document.getElementById("nfc-beep").checked = value.nfc_confirmation_beep;
+  document.getElementById("family-card-settings").hidden = channelBox();
   document.getElementById("card-name-prompt").checked = value.card_name_prompt !== false;
   document.getElementById("swoosh-sound").checked = value.swoosh_sound_enabled;
   document.getElementById("settings-attention").hidden = !payload.attention;
@@ -1227,6 +1278,9 @@ function renderAdvancedManagement() {
     document.getElementById(id).hidden = cloud;
   }
   document.getElementById("advanced-cloud-management").hidden = !cloud;
+  // On channel boxes these tiles only lead back to Setup; the buttons below manage both.
+  document.getElementById("advanced-shortcuts").hidden = channelBox();
+  document.getElementById("manage-recipients").textContent = channelBox() ? "Manage chats and buttons" : "Manage recipients";
   document.getElementById("advanced-connections-label").textContent = cloud ? "WhatsApp connection" : "Wi-Fi and WhatsApp";
   document.getElementById("advanced-connections-copy").textContent = cloud
     ? "Manage your connection in Button Box Cloud."

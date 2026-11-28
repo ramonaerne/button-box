@@ -453,6 +453,14 @@ class RecipientSetup:
         return self.public_state(state)
 
     @synchronized
+    def unbind_button(self, channel):
+        try:
+            self.contacts.unbind_channel(channel)
+        except ContactError as exc:
+            raise RecipientError(str(exc)) from exc
+        return self.public_state()
+
+    @synchronized
     def rename(self, token, name):
         state = self._load()
         candidate = self._candidate(state, token, require_available=False)

@@ -753,6 +753,13 @@ class PairingEngine:
         except RecipientError as exc:
             raise PairingError(str(exc)) from exc
 
+    def recipient_unbind(self, channel):
+        self._require_ready()
+        try:
+            return self.recipients.unbind_button(channel)
+        except RecipientError as exc:
+            raise PairingError(str(exc)) from exc
+
     def recipient_bind(self, channel, token):
         self._require_ready()
         try:

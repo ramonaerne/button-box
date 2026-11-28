@@ -116,9 +116,11 @@
         <p id="timezone-help" class="field-help"></p>
         <p class="field-help">During quiet hours, messages queue without ringing or lighting the lamp. Deliberate playback still works. When quiet hours end, waiting messages signal once using your arrival setting, as soon as the box is idle within 30 minutes.</p>
 
-        <h2>Family cards</h2>
-        <label class="choice"><input id="nfc-beep" name="nfc_confirmation_beep" type="checkbox"> Family confirmation beep</label>
-        <label class="choice"><input id="card-name-prompt" name="card_name_prompt" type="checkbox"> Say the name when a card is tapped</label>
+        <div id="family-card-settings">
+          <h2>Family cards</h2>
+          <label class="choice"><input id="nfc-beep" name="nfc_confirmation_beep" type="checkbox"> Family confirmation beep</label>
+          <label class="choice"><input id="card-name-prompt" name="card_name_prompt" type="checkbox"> Say the name when a card is tapped</label>
+        </div>
         <button id="save-settings" type="submit">Save settings</button>
         <p id="settings-status" class="status" role="status" aria-live="polite"></p>
       </form>
@@ -142,7 +144,7 @@
       <div class="notice"><strong>Household network access</strong><span>This dashboard has no login. Anyone on the household Wi-Fi, Button Box setup hotspot, or an authorized configured tailnet device can change settings and play queued audio.</span></div>
       <div id="advanced-health" class="status-grid"></div>
       <h2>Connections and people</h2>
-      <div class="shortcut-grid">
+      <div class="shortcut-grid" id="advanced-shortcuts">
         <a id="advanced-connections-setup" href="#setup" class="shortcut"><strong id="advanced-connections-label">Wi-Fi and WhatsApp</strong><span id="advanced-connections-copy">Reconnect, relink, or continue setup.</span></a>
         <a id="advanced-recipients-setup" href="#setup" class="shortcut"><strong>Recipients and Family cards</strong><span>Add, remove, select, Pair, reassign, or Unpair.</span></a>
       </div>
@@ -371,7 +373,7 @@
     <section class="card" id="recipient-manager-view" aria-labelledby="recipient-manager-title" hidden>
       <p class="eyebrow success">Messaging ready</p>
       <h1 id="recipient-manager-title" tabindex="-1">Recipients</h1>
-      <p class="lede">Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.</p>
+      <p class="lede" id="manager-lede">Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.</p>
       <h2 class="section-title">Allowed recipients</h2>
       <ul id="configured-recipient-list" class="recipient-list"></ul>
       <div class="manual-recipient">
@@ -397,7 +399,7 @@
         <strong>Family cards come next</strong>
         <span>Your default recipient already works without a card. To Unpair one card, present it to Button Box and choose Unpair.</span>
       </div>
-      <div class="button-row">
+      <div class="button-row" id="manager-nfc-actions">
         <button type="button" id="continue-nfc">Continue to Family cards</button>
         <button type="button" id="unpair-presented-nfc" class="secondary">Unpair</button>
         <button type="button" id="cancel-runtime-nfc" class="text-button" hidden>Cancel card pairing</button>
