@@ -494,6 +494,8 @@ function renderRecipientManager(data) {
   document.getElementById("manager-nfc-actions").hidden = buttons;
   // Choosing a button approves the chat, so the separate Allow steps are not needed.
   document.getElementById("manual-allow").hidden = buttons;
+  // During setup the remaining step is Finish setup on the Setup page.
+  document.getElementById("manager-back-setup").hidden = !buttons || currentState?.mode === "RUNTIME";
   document.getElementById("manager-lede").textContent = buttons
     ? "Put an allowed chat on the green or red button. Tap plays its messages; hold records a reply to it."
     : "Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.";

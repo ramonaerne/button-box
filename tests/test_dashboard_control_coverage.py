@@ -83,6 +83,7 @@ CONTROL_CASES = {
     "choose-manual-default": ["BB-RECIP-01", "BB-RECIP-02", "BB-RECIP-06"],
     "refresh-recipients": ["BB-RECIP-03"],
     "finish-buttons": ["BB-BTN-01"],
+    "manager-back-setup": ["BB-BTN-01"],
     "defer-recipients": ["BB-RECIP-04"],
     "resume-recipients": ["BB-RECIP-04"],
     "open-recipient-manager": ["BB-NAV-03"],
