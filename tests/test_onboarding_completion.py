@@ -116,7 +116,8 @@ class CompletionTests(unittest.TestCase):
         commands = [call[0] for call in self.calls]
         self.assertNotIn(["systemctl", "enable", "messagebox-nfc.service"], commands)
         self.assertIn(
-            ["systemctl", "enable", "messagebox-button.service", "messagebox-sync.service", "messagebox-poller.service"],
+            ["systemctl", "enable", "messagebox-button.service", "messagebox-sync.service",
+             "messagebox-poller.service", "messagebox-relink-watch.timer"],
             commands,
         )
         self.assertIn(["systemctl", "disable", "messagebox-dash.service"], commands)

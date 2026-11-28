@@ -155,7 +155,11 @@ def complete(
             if channels:
                 # Channel boxes keep the no-login dashboard off after setup; changes
                 # go through a full reset, or a developer starts it over SSH.
-                run(["systemctl", "enable", *(u for u in RUNTIME_UNITS if u != "messagebox-dash.service")], check=True)
+                run(
+                    ["systemctl", "enable", *(u for u in RUNTIME_UNITS if u != "messagebox-dash.service"),
+                     "messagebox-relink-watch.timer"],
+                    check=True,
+                )
                 run(["systemctl", "disable", "messagebox-dash.service"], check=True)
             else:
                 run(["systemctl", "enable", *RUNTIME_UNITS], check=True)

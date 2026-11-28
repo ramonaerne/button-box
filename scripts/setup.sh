@@ -28,7 +28,7 @@ nfc.py nfc_state.py runtime_paths.py remote_access.py settings.py tailnet.py voi
 DASHBOARD_PYTHON="dashboard/__init__.py dashboard/app.py"
 ONBOARDING_PYTHON="onboarding/__init__.py onboarding/app.py onboarding/activity.py
 onboarding/comitup_adapter.py onboarding/connectivity.py onboarding/initialize.py
-onboarding/completion.py onboarding/mode.py onboarding/nfc.py onboarding/paths.py onboarding/recipients.py onboarding/reset.py onboarding/state.py
+onboarding/completion.py onboarding/mode.py onboarding/nfc.py onboarding/paths.py onboarding/recipients.py onboarding/relink_watch.py onboarding/reset.py onboarding/state.py
 onboarding/voice_gate.py onboarding/whatsapp.py"
 STATIC_ASSETS="onboarding/static/app.js onboarding/static/clipboard.js onboarding/static/wifi-handoff.js onboarding/static/cloud-connect.html onboarding/static/cloud-connect.js onboarding/static/cloud-local.html onboarding/static/cloud-local.js onboarding/static/index.html onboarding/static/styles.css"
 
@@ -83,6 +83,8 @@ for path in \
   systemd/messagebox-dash.service \
   systemd/messagebox-wifi-change.service \
   systemd/messagebox-wifi-change.path \
+  systemd/messagebox-relink-watch.service \
+  systemd/messagebox-relink-watch.timer \
   systemd/messagebox-wifi-watchdog.service \
   systemd/messagebox-wifi-watchdog.timer \
   systemd/messagebox-nfc.service \
@@ -392,6 +394,9 @@ sudo install -o root -g root -m 0644 \
 sudo install -o root -g root -m 0644 \
   "$REPO_DIR/systemd/messagebox-wifi-change.path" \
   /etc/systemd/system/messagebox-wifi-change.path
+for name in messagebox-relink-watch.service messagebox-relink-watch.timer; do
+  sudo install -o root -g root -m 0644 "$REPO_DIR/systemd/$name" "/etc/systemd/system/$name"
+done
 sudo install -o root -g root -m 0644 \
   "$REPO_DIR/systemd/messagebox.tmpfiles.conf" /etc/tmpfiles.d/messagebox.conf
 sudo install -o root -g root -m 0755 \
@@ -458,6 +463,8 @@ sudo systemd-analyze verify \
   /etc/systemd/system/messagebox-dash.service \
   /etc/systemd/system/messagebox-wifi-change.service \
   /etc/systemd/system/messagebox-wifi-change.path \
+  /etc/systemd/system/messagebox-relink-watch.service \
+  /etc/systemd/system/messagebox-relink-watch.timer \
   /etc/systemd/system/messagebox-wifi-watchdog.service \
   /etc/systemd/system/messagebox-wifi-watchdog.timer \
   /etc/systemd/system/messagebox-nfc.service \

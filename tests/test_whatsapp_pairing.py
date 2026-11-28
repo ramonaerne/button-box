@@ -1,3 +1,4 @@
+import hashlib
 import json
 import os
 import re
@@ -725,6 +726,51 @@ class WhatsAppPairingTests(unittest.TestCase):
         # No discovery file yet: the list is empty instead of failing, so a refresh can fill it.
         listed = self.engine(runner=WacliRunner(authenticated=True), recipient_setup=recipients).recipient_list()
         self.assertEqual(listed["recipients"], [])
+
+    def linked_box(self, runner):
+        """A ready engine with one bound chat, as left by a finished setup."""
+        self.live_store.mkdir()
+        (self.live_store / "wacli.db").write_text("private", encoding="ascii")
+        recipients = RecipientSetup(
+            state_path=self.root / "recipient-state.json",
+            contacts_path=self.root / "contacts.json",
+            events_path=self.root / "events.jsonl",
+            voice_request_path=self.root / "voice-request.json",
+        )
+        recipients.contacts.add_contact("120363123456789@g.us", "Family")
+        recipients.contacts.bind_channel("1", "120363123456789@g.us")
+        engine = self.engine(runner=runner, recipient_setup=recipients)
+        engine._set_state("ready", phone_hint="Linked account")
+        engine._remember_account("14155550123@s.whatsapp.net")
+        return engine, recipients
+
+    def test_server_logout_retires_the_dead_store_so_pairing_can_start(self):
+        engine, recipients = self.linked_box(WacliRunner(authenticated=False))
+
+        self.assertEqual(engine.public_state()["status"], "idle")
+        self.assertEqual(list(self.live_store.iterdir()), [])
+        self.assertTrue((self.pairing_root / "previous-account").exists())
+        # Chats and bindings wait for the next pairing to decide.
+        self.assertEqual(recipients.contacts.load()["channels"], {"1": "120363123456789@g.us"})
+
+    def test_logged_in_store_is_not_retired(self):
+        engine, _ = self.linked_box(WacliRunner(authenticated=True))
+        self.assertEqual(engine.public_state()["status"], "ready")
+        self.assertTrue((self.live_store / "wacli.db").exists())
+
+    def test_relinking_the_same_account_keeps_bindings_another_account_clears_them(self):
+        for previous, kept in (("14155550123@s.whatsapp.net", True), ("19995550000@s.whatsapp.net", False)):
+            with self.subTest(previous=previous):
+                self.tearDown()
+                self.setUp()
+                engine, recipients = self.linked_box(WacliRunner(authenticated=True))
+                (self.pairing_root / "previous-account").write_text(
+                    hashlib.sha256(previous.encode("ascii")).hexdigest(), encoding="ascii"
+                )
+                engine._settle_account()
+                channels = recipients.contacts.load()["channels"]
+                self.assertEqual(channels, {"1": "120363123456789@g.us"} if kept else {})
+                self.assertFalse((self.pairing_root / "previous-account").exists())
 
     def test_unauthenticated_or_empty_store_is_not_adopted(self):
         self.assertEqual(self.engine(runner=WacliRunner(authenticated=True)).public_state()["status"], "idle")

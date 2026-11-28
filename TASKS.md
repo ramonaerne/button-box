@@ -210,9 +210,13 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       box: no WhatsApp relink, default-recipient, voice-gate or NFC step
       blocks completion, and completion does not enable NFC. Relinking to
       another account stays possible from the dashboard (existing unlink).
-- [ ] **T6c Logout indicator** — *AC:* when WhatsApp auth is lost, all LEDs
-      show a distinct pattern (different from ring/pending/recording) until
-      auth returns.
+- [~] **T6c WhatsApp logout recovery** (2026-11-28, replaces the LED-only
+      indicator) — code + tests done; Pi check pending. A root timer re-enters
+      setup on the current Wi-Fi after two clean "not authenticated" checks;
+      the setup page offers pairing again; the same account keeps chats and
+      bindings. *Pi test:* log the box out from the phone (Linked devices), wait
+      up to ~10 min, open the setup page, pair with the code read aloud, Finish,
+      both buttons work. Prevention: keep the box account's phone online.
 - [x] **T7b Zero 2 W Path B validation** — hotspot appears, Wi-Fi joins,
       reset keeps WhatsApp and bindings (2026-11-28) — *AC:* on the physical box: the
       hotspot appears, Wi-Fi joins, and the Wi-Fi reset gesture keeps

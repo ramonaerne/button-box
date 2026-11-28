@@ -440,9 +440,13 @@ class PairingEngine:
                 return
             if phone_hint is not None:
                 self._set_state("ready", phone_hint=phone_hint)
+                jid = _linked_account_jid(_json_document(auth.stdout))
+                if jid is not None:
+                    self._remember_account(jid)
 
     def public_state(self):
         self._adopt_terminal_link()
+        self._retire_logged_out_store()
         with self._lock:
             state = self._load_state()
             return {
@@ -601,7 +605,77 @@ class PairingEngine:
         jid = _linked_account_jid(_json_document(auth.stdout))
         if jid is None:
             raise PairingError("not_authenticated")
+        self._remember_account(jid)
         return jid
+
+    def _remember_account(self, jid):
+        # Only a hash: enough to tell "same account" after a server-side logout.
+        digest = hashlib.sha256(jid.encode("ascii")).hexdigest()
+        path = self.root / "account"
+        try:
+            if path.read_text(encoding="ascii") == digest:
+                return
+        except OSError:
+            pass
+        path.write_text(digest, encoding="ascii")
+        os.chmod(path, 0o600)
+
+    def _retire_logged_out_store(self):
+        """Clear a store WhatsApp logged out server-side so pairing can start again.
+
+        Such a store can never reconnect, and pairing refuses a non-empty live
+        store. Chats and bindings stay until the next pairing shows whether it
+        is the same account (see _settle_account).
+        """
+        if self._load_state()["status"] != "ready":
+            return
+        now = self.clock()
+        if now - getattr(self, "_auth_checked_at", -math.inf) < 30:
+            return
+        self._auth_checked_at = now
+        try:
+            auth = self._run_wacli(
+                self.live_store, ["--read-only", "--json", "auth", "status"], timeout=15
+            )
+            document = _json_document(auth.stdout) if auth.returncode == 0 else None
+        except (OSError, PairingError, subprocess.SubprocessError):
+            return
+        if isinstance(document, dict) and isinstance(document.get("data"), dict):
+            document = document["data"]
+        # Only a clean "not authenticated" answer counts; errors change nothing.
+        if not isinstance(document, dict) or document.get("authenticated") is not False:
+            return
+        with self._lock:
+            if self._load_state()["status"] != "ready":
+                return
+            self._pause_sync()
+            try:
+                previous = (self.root / "account").read_text(encoding="ascii")
+            except OSError:
+                previous = "unknown"
+            (self.root / "previous-account").write_text(previous, encoding="ascii")
+            self._remove_directory(self.live_store)
+            self.live_store.mkdir(parents=True, mode=0o700)
+            self._set_state("idle")
+
+    def _settle_account(self):
+        """After pairing, keep chats and bindings only for the same account."""
+        marker = self.root / "previous-account"
+        if not marker.exists():
+            return
+        try:
+            previous = marker.read_text(encoding="ascii")
+            current = hashlib.sha256(self._live_account_jid().encode("ascii")).hexdigest()
+        except (OSError, PairingError, subprocess.SubprocessError):
+            current = None
+        if current != previous:
+            # Another (or unknown) account must never inherit the old chats.
+            try:
+                self.recipients.reset_for_whatsapp_relink()
+            except (OSError, RecipientError) as exc:
+                self._set_state("failed", error="CLEANUP_FAILED")
+                raise PairingError("cleanup_required") from exc
+        marker.unlink()
 
     def _live_candidates(self, *, refresh=False):
         self._require_ready()
@@ -898,6 +972,7 @@ class PairingEngine:
                 phone_hint=phone_hint,
                 eligible_count=len(candidates),
             )
+            self._settle_account()
             self._resume_sync()
 
     def _raise_if_cancelled(self):

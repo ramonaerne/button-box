@@ -1,0 +1,10 @@
+[Unit]
+Description=Check the WhatsApp login every 5 minutes (channel boxes)
+PartOf=messagebox.target
+
+[Timer]
+OnActiveSec=5min
+OnUnitActiveSec=5min
+
+[Install]
+WantedBy=messagebox.target

@@ -21,7 +21,7 @@ UPDATER_SPEC.loader.exec_module(bounded_update)
 class ReleaseManifestTests(unittest.TestCase):
     def test_payload_includes_fixed_trust_tools_without_installing_root_pins(self):
         payload = (ROOT / 'scripts/release/payload.txt').read_text().splitlines()
-        self.assertEqual(len(payload), 707)
+        self.assertEqual(len(payload), 710)
         for name in ('scripts/install/trust_update.py', 'scripts/release/trust-update.py',
                      'config/emergency-keys/README.md', 'scripts/install/health-probe.py',
                      'messagebox/controller_selector.py', 'messagebox/controller_slots.py',
@@ -30,12 +30,12 @@ class ReleaseManifestTests(unittest.TestCase):
         # Boot repair, the record-start cue the virtual-button runner and the send limit bring the installed mapping to 692 files.
         # Fixed trust code is staged separately in updater/; public pins are bootstrap-only.
         paths = release_manifest.installed_paths(ROOT)
-        self.assertEqual(len(paths), 692)
+        self.assertEqual(len(paths), 695)
         self.assertFalse(any('/etc/button-box-update/' in target for target in paths.values()))
 
     def test_mapping_is_complete_for_runtime_and_excludes_private_state(self):
         paths = release_manifest.installed_paths(ROOT)
-        self.assertEqual(len(paths), 692)
+        self.assertEqual(len(paths), 695)
         for name in ("cloud-local.html", "cloud-local.js"):
             self.assertEqual(paths[f"messagebox/onboarding/static/{name}"], f"/opt/messagebox/messagebox/onboarding/static/{name}")
         self.assertEqual(len(paths.values()), len(set(paths.values())))

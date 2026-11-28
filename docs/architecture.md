@@ -218,6 +218,15 @@ skip via `ExecCondition`. Setup binds in the recipient manager
 exists only during setup. Changes go through a Wi-Fi reset and setup again, or
 a developer starts the dashboard over SSH.
 
+WhatsApp logout recovery on a channel box: `messagebox-relink-watch.timer`
+runs a root check every 5 minutes in normal mode. Two clean
+`wacli auth status` answers of "not authenticated" in a row re-enter setup with
+`perform_reset(keep_wifi=True)`: saved Wi-Fi stays and setup starts after the
+hotspot step. The pairing worker then retires the dead live store (it can never
+reconnect, and pairing refuses a non-empty store) and keeps a hash of the old
+account. After pairing, chats and button bindings stay for the same account and
+are cleared for any other or unknown account.
+
 Skip or Done creates a fixed, content-free completion request. The root gate
 validates the completed recipient state and default, enables the button, sync,
 poller, canonical dashboard, and NFC reader under `messagebox.target`, removes

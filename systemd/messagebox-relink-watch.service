@@ -1,0 +1,16 @@
+[Unit]
+Description=Button Box WhatsApp logout watch (channel boxes)
+ConditionPathExists=!/etc/messagebox-onboarding/enabled
+ConditionPathExists=!/var/lib/button-box-update/install-inhibit
+
+[Service]
+Type=oneshot
+User=root
+EnvironmentFile=-/etc/messagebox/env
+Environment=PYTHONPATH=/opt/messagebox
+WorkingDirectory=/opt/messagebox
+# Preserved so the "logged out" count survives between timer runs.
+RuntimeDirectory=messagebox-relink-watch
+RuntimeDirectoryMode=0700
+RuntimeDirectoryPreserve=yes
+ExecStart=/usr/bin/python3 -m messagebox.onboarding.relink_watch

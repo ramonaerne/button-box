@@ -111,6 +111,7 @@ rsync -azR \
   "$REPO_DIR/./messagebox/onboarding/nfc.py" \
   "$REPO_DIR/./messagebox/onboarding/paths.py" \
   "$REPO_DIR/./messagebox/onboarding/recipients.py" \
+  "$REPO_DIR/./messagebox/onboarding/relink_watch.py" \
   "$REPO_DIR/./messagebox/onboarding/reset.py" \
   "$REPO_DIR/./messagebox/onboarding/state.py" \
   "$REPO_DIR/./messagebox/onboarding/voice_gate.py" \

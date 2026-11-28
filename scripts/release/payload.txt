@@ -45,6 +45,7 @@ messagebox/onboarding/mode.py
 messagebox/onboarding/nfc.py
 messagebox/onboarding/paths.py
 messagebox/onboarding/recipients.py
+messagebox/onboarding/relink_watch.py
 messagebox/onboarding/reset.py
 messagebox/onboarding/state.py
 messagebox/onboarding/static/app.js
@@ -675,6 +676,8 @@ systemd/messagebox-mode-reconcile.path
 systemd/messagebox-mode-reconcile.service
 systemd/messagebox-nfc.service
 systemd/messagebox-poller.service
+systemd/messagebox-relink-watch.service
+systemd/messagebox-relink-watch.timer
 systemd/messagebox-sync.service
 systemd/messagebox-update-bootstrap.service
 systemd/messagebox-update-controller.service
