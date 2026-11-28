@@ -217,6 +217,8 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       bindings. *Pi test:* log the box out from the phone (Linked devices), wait
       up to ~10 min, open the setup page, pair with the code read aloud, Finish,
       both buttons work. Prevention: keep the box account's phone online.
+      In setup mode both LEDs blink together (`messagebox-setup-lamp`), so a
+      box waiting for setup or relink is visibly not normal.
 - [x] **T7b Zero 2 W Path B validation** — hotspot appears, Wi-Fi joins,
       reset keeps WhatsApp and bindings (2026-11-28) — *AC:* on the physical box: the
       hotspot appears, Wi-Fi joins, and the Wi-Fi reset gesture keeps

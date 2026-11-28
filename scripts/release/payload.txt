@@ -47,6 +47,7 @@ messagebox/onboarding/paths.py
 messagebox/onboarding/recipients.py
 messagebox/onboarding/relink_watch.py
 messagebox/onboarding/reset.py
+messagebox/onboarding/setup_lamp.py
 messagebox/onboarding/state.py
 messagebox/onboarding/static/app.js
 messagebox/onboarding/static/clipboard.js
@@ -706,5 +707,6 @@ systemd/onboarding/messagebox-onboarding-nfc.service
 systemd/onboarding/messagebox-onboarding-voice-gate.service
 systemd/onboarding/messagebox-onboarding-voice.path
 systemd/onboarding/messagebox-onboarding-voice.target
+systemd/onboarding/messagebox-setup-lamp.service
 systemd/onboarding/messagebox-whatsapp-pairing.service
 systemd/onboarding/messagebox-wifi-reset.service

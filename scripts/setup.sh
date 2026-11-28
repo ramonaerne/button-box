@@ -28,7 +28,7 @@ nfc.py nfc_state.py runtime_paths.py remote_access.py settings.py tailnet.py voi
 DASHBOARD_PYTHON="dashboard/__init__.py dashboard/app.py"
 ONBOARDING_PYTHON="onboarding/__init__.py onboarding/app.py onboarding/activity.py
 onboarding/comitup_adapter.py onboarding/connectivity.py onboarding/initialize.py
-onboarding/completion.py onboarding/mode.py onboarding/nfc.py onboarding/paths.py onboarding/recipients.py onboarding/relink_watch.py onboarding/reset.py onboarding/state.py
+onboarding/completion.py onboarding/mode.py onboarding/nfc.py onboarding/paths.py onboarding/recipients.py onboarding/relink_watch.py onboarding/reset.py onboarding/setup_lamp.py onboarding/state.py
 onboarding/voice_gate.py onboarding/whatsapp.py"
 STATIC_ASSETS="onboarding/static/app.js onboarding/static/clipboard.js onboarding/static/wifi-handoff.js onboarding/static/cloud-connect.html onboarding/static/cloud-connect.js onboarding/static/cloud-local.html onboarding/static/cloud-local.js onboarding/static/index.html onboarding/static/styles.css"
 
@@ -103,6 +103,7 @@ for path in \
   systemd/onboarding/messagebox-onboarding-voice.target \
   systemd/onboarding/messagebox-whatsapp-pairing.service \
   systemd/onboarding/messagebox-wifi-reset.service \
+  systemd/onboarding/messagebox-setup-lamp.service \
   systemd/messagebox.target \
   systemd/messagebox.tmpfiles.conf; do
   if [ ! -r "$REPO_DIR/$path" ]; then
@@ -168,6 +169,7 @@ for unit in \
   comitup.service \
   comitup-web.service \
   messagebox-onboarding-home.service \
+  messagebox-setup-lamp.service \
   messagebox-onboarding-nfc.service \
   messagebox-onboarding-complete.service \
   messagebox-onboarding-button.service \
@@ -428,7 +430,8 @@ sudo install -o root -g root -m 0644 \
   /etc/systemd/system/comitup-web.service.d/messagebox.conf
 for name in messagebox-onboarding-home messagebox-onboarding-button \
   messagebox-onboarding-voice-gate messagebox-onboarding-nfc \
-  messagebox-onboarding-complete messagebox-whatsapp-pairing messagebox-wifi-reset; do
+  messagebox-onboarding-complete messagebox-whatsapp-pairing messagebox-wifi-reset \
+  messagebox-setup-lamp; do
   sudo install -o root -g root -m 0644 \
     "$REPO_DIR/systemd/onboarding/$name.service" "/etc/systemd/system/$name.service"
 done
@@ -470,6 +473,7 @@ sudo systemd-analyze verify \
   /etc/systemd/system/messagebox-nfc.service \
   /usr/lib/systemd/system/comitup-web.service \
   /etc/systemd/system/messagebox-onboarding-home.service \
+  /etc/systemd/system/messagebox-setup-lamp.service \
   /etc/systemd/system/messagebox-onboarding-nfc.service \
   /etc/systemd/system/messagebox-onboarding-complete.service \
   /etc/systemd/system/messagebox-onboarding-complete.path \

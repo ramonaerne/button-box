@@ -113,6 +113,7 @@ rsync -azR \
   "$REPO_DIR/./messagebox/onboarding/recipients.py" \
   "$REPO_DIR/./messagebox/onboarding/relink_watch.py" \
   "$REPO_DIR/./messagebox/onboarding/reset.py" \
+  "$REPO_DIR/./messagebox/onboarding/setup_lamp.py" \
   "$REPO_DIR/./messagebox/onboarding/state.py" \
   "$REPO_DIR/./messagebox/onboarding/voice_gate.py" \
   "$REPO_DIR/./messagebox/onboarding/whatsapp.py" \

@@ -1,0 +1,25 @@
+[Unit]
+ConditionPathExists=!/var/lib/button-box-update/install-inhibit
+Description=Button Box setup lamp (channel boxes blink while waiting for setup)
+ConditionPathExists=/etc/messagebox-onboarding/enabled
+BindsTo=comitup.service
+PartOf=comitup.service
+After=comitup.service
+# The button service owns the same LED pins in normal mode.
+Conflicts=messagebox-button.service
+Before=messagebox-button.service
+
+[Service]
+Type=simple
+User=messagebox
+Group=messagebox
+SupplementaryGroups=gpio
+WorkingDirectory=/opt/messagebox
+EnvironmentFile=/etc/messagebox/env
+Environment=PYTHONPATH=/opt/messagebox
+Environment=GPIOZERO_PIN_FACTORY=lgpio
+# Single-button boxes have no channel LEDs to blink; skip cleanly.
+ExecCondition=+/bin/sh -c 'grep -Eq "^MSGBOX_CHANNEL_PINS=.+" /etc/messagebox/env'
+ExecStart=/usr/bin/python3 -u -m messagebox.onboarding.setup_lamp
+Restart=on-failure
+RestartSec=5

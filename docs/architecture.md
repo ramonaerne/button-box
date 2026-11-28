@@ -227,6 +227,11 @@ reconnect, and pairing refuses a non-empty store) and keeps a hash of the old
 account. After pairing, chats and button bindings stay for the same account and
 are cleared for any other or unknown account.
 
+While a channel box is in setup mode (Wi-Fi reset or relink),
+`messagebox-setup-lamp.service` blinks every channel LED together. It starts
+with comitup and conflicts with `messagebox-button.service`, which owns the
+same pins in normal mode.
+
 Skip or Done creates a fixed, content-free completion request. The root gate
 validates the completed recipient state and default, enables the button, sync,
 poller, canonical dashboard, and NFC reader under `messagebox.target`, removes
