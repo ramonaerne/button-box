@@ -15,10 +15,12 @@ boxes keep the upstream behaviour.
 | USB audio dongle (C-Media) | One card for microphone and speaker. Its mixer controls are `Speaker`, `Mic` and `Auto Gain Control`. |
 | Small speaker | Powered from the 5 V rail, not from the Pi's data port. |
 | Microphone | On the dongle's input. It is opened only while recording. |
-| Two arcade buttons with LEDs | Buttons to GND with pull-ups; LEDs driven through the rotary-phone shield (DRV8876). |
+| Two arcade buttons with LEDs | Buttons to GND with pull-ups. The 5 V LEDs need a switch: here the DialPhone adapter (DRV8876); one logic-level MOSFET per LED works too. |
 | Power supply | At least 2.5 A. |
 
-Wiring is in [`hardware/schematic-2-channel.svg`](../hardware/schematic-2-channel.svg):
+Parts, photos and the optional adapter (and how to do without it) are in
+[`hardware/README-channel-box.md`](../hardware/README-channel-box.md). Wiring
+used here, from [`hardware/schematic-2-channel.svg`](../hardware/schematic-2-channel.svg):
 
 | Channel | Button | LED | Notes |
 | --- | --- | --- | --- |

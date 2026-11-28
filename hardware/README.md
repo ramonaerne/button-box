@@ -1,8 +1,8 @@
 # Hardware
 
-Two-button channel box (fork): wiring, power, configuration and the required
-label are in [docs/channel-box.md](../docs/channel-box.md); the schematic is
-[schematic-2-channel.svg](schematic-2-channel.svg).
+Two-button channel box (fork): parts, photos, adapter schematic and pins are in
+[README-channel-box.md](README-channel-box.md); setup, use and the required
+label are in [docs/channel-box.md](../docs/channel-box.md).
 
 ## BOM
 
