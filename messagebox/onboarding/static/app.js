@@ -305,6 +305,8 @@ function applyWhatsAppState(state, { manage = false } = {}) {
     document.getElementById("continue-recipients").textContent = channelBox(state)
       ? "Choose chats for the buttons"
       : "Choose a recipient";
+    // At runtime channel boxes assign buttons in Manage chats and buttons.
+    document.getElementById("continue-recipients").hidden = channelBox(state) && state.mode === "RUNTIME";
     if (manage) {
       showView("ready");
     } else if (channelBox(state)) {
