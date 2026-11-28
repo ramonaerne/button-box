@@ -231,7 +231,8 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 ### Later (optional)
 
-- [ ] **Remove dev SSH-on-hotspot rule** (added 2026-11-28 by hand on
+- [x] **Remove dev SSH-on-hotspot rule** — removed 2026-11-28 after two
+      successful hotspot Wi-Fi switches (added 2026-11-28 by hand on
       `button-box-01`, not in the repo): a `tcp dport 22 accept` line tagged
       `# dev only: SSH on hotspot` in `/etc/messagebox-onboarding/firewall.nft`.
       Remove with `sudo sed -i '/dev only: SSH on hotspot/d'
