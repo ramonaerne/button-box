@@ -90,6 +90,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | D13 | The household picks only from a short list of approved chats (relatives) that the builder enters in the terminal. |
 | D14 | (2026-11-25, provisional) Keep **review before send** on (upstream default) for now. Revisit with a real mic before the gift ships (T12). Turning it off gives "hold to talk, release sends" (the original MODIFICATION.md idea) but removes the undo; the turn rule (T5) limits the cost of an accidental send. |
 | D16 | (2026-11-28) Replaces D2: no upstream PRs. The fork has drifted (Pi changes, new features) and stays a fork. T0 and T4 are dropped; "(upstream)" labels below are historical. Per-reply limit (D15) is final; no per-day limit. Signal stays deferred. |
+| D17 | (2026-11-28) Replaces D7, D8, D9, D12, D13 for rebinding: each button is bound once, in the terminal, to its own WhatsApp group. "Reassigning" means changing the group's members on a phone. No rebinding on the box, dashboard or portal. The household only redoes setup after a reset: hotspot, Wi-Fi, keep WhatsApp linked (relink stays optional via the dashboard's existing unlink). |
 | D15 | (2026-11-26) Replaces the one-turn rule: up to N sends per channel between replies, N set in the dashboard (off/1/2/3/5, default off). Reset when a newer reply is **played**, not just received. Per channel. Limit reached → wait tone only, mic stays closed. Not a security boundary: the dashboard has no login. |
 
 Accepted defaults: each channel binds one chat (person or group). Only
@@ -152,14 +153,7 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       group any member's reply counts. Channels count independently.
       Counters survive a reboot, a rebind resets that channel, and lowering N
       applies at once. Fleet fixture regenerated (`settings_contract.py`).
-- [ ] **T6 Dashboard binding with confirmation (upstream)** — show the
-      channels and request rebinds. *AC:* a request makes LED N blink
-      fast. Holding button N for 5 s within 5 min applies it. A shorter
-      hold, another button, or a timeout applies nothing, and the old chat
-      stays active the whole time. While pending, button N doesn't record.
-      Only approved chats are offered. On apply, messages waiting from the
-      old chat move to hold and the turn state clears. Tests cover expiry
-      and a restart while pending.
+- [-] **T6 Dashboard binding with confirmation** — dropped (D17).
 - [ ] **T6b Path A binding** — `messagebox-dev-onboard` adds approved
       chats and binds channels (no box confirmation). *AC:* a fresh Pi
       reaches a two-channel working box using only the terminal flow and
@@ -176,11 +170,12 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 ### Phase 2 (gift)
 
-- [ ] **T7 Path B portal binds channels** — *AC:* after Wi-Fi, a linked box
-      skips WhatsApp linking. The household picks an approved chat for each
-      button and confirms each on the box (D12). The default-recipient,
-      voice-gate and NFC steps don't block a channel box. The household
-      never sees chats outside the approved list.
+- [ ] **T7 Reset and hotspot setup on a channel box (D17)** — *AC:* the
+      reset gesture puts the box back into hotspot setup and keeps WhatsApp,
+      contacts and bindings. The portal does Wi-Fi only on a linked channel
+      box: no WhatsApp relink, default-recipient, voice-gate or NFC step
+      blocks completion, and completion does not enable NFC. Relinking to
+      another account stays possible from the dashboard (existing unlink).
 - [ ] **T6c Logout indicator** — *AC:* when WhatsApp auth is lost, all LEDs
       show a distinct pattern (different from ring/pending/recording) until
       auth returns.
