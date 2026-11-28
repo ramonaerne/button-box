@@ -171,8 +171,8 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 ### Phase 2 (gift)
 
-- [~] **T7a Button binding replaces recipient + NFC setup** — code + tests
-      done 2026-11-28; Pi check pending (approved 2026-11-28). A channel box is one with
+- [x] **T7a Button binding replaces recipient + NFC setup** — code + tests
+      done 2026-11-28; verified on the Pi 2026-11-28 (approved 2026-11-28). A channel box is one with
       `MSGBOX_CHANNEL_PINS` set; single-button boxes keep today's flow.
       (Superseded detail: binding now happens in Manage chats and buttons for
       setup and runtime; Finish setup sits on the Setup page.)
@@ -202,7 +202,9 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       buttons; NFC units never start; only discovered chats can be bound,
       one chat per button; no JIDs in logs; single-button setup tests
       unchanged.
-- [ ] **T7 Reset and hotspot setup on a channel box (D17)** — *AC:* the
+- [x] **T7 Reset and hotspot setup on a channel box (D17)** — verified on
+      the Pi 2026-11-28 (reset, hotspot, Wi-Fi join, WhatsApp and bindings kept,
+      Finish) — *AC:* the
       reset gesture puts the box back into hotspot setup and keeps WhatsApp,
       contacts and bindings. The portal does Wi-Fi only on a linked channel
       box: no WhatsApp relink, default-recipient, voice-gate or NFC step
@@ -211,13 +213,15 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **T6c Logout indicator** — *AC:* when WhatsApp auth is lost, all LEDs
       show a distinct pattern (different from ring/pending/recording) until
       auth returns.
-- [ ] **T7b Zero 2 W Path B validation** — *AC:* on the physical box: the
+- [x] **T7b Zero 2 W Path B validation** — hotspot appears, Wi-Fi joins,
+      reset keeps WhatsApp and bindings (2026-11-28) — *AC:* on the physical box: the
       hotspot appears, Wi-Fi joins, and the Wi-Fi reset gesture keeps
       WhatsApp and bindings.
 - [ ] **T12 Decide review before send for the gift** (open, D14) — *AC:* the
       shipped setting is chosen after testing with a real mic and a child-like
       user, and is recorded in D14.
-- [ ] **T13 Dashboard message audio off (upstream setting)** — the no-login
+- [-] **T13 Dashboard message audio off** — moot for channel boxes (D18:
+      no dashboard after setup) — the no-login
       dashboard streams received voice messages (`/audio/<f>`) to anyone on
       the Wi-Fi. *AC:* an env setting (e.g. `MSGBOX_DASH_AUDIO=0`, documented
       in `config/env.example`, settable at install) removes playback: the
@@ -242,7 +246,7 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [ ] **Reset reads channel pin 1** — `onboarding/reset.py` uses the first
       button of `MSGBOX_CHANNEL_PINS` when set. Not needed while
       `MSGBOX_BUTTON_PIN=25` is in the env.
-- [~] **Keep WhatsApp linked across a reset** — done 2026-11-28 (needed for
+- [x] **Keep WhatsApp linked across a reset** — done and verified 2026-11-28 (needed for
       button binding on a terminal-linked box): an idle pairing engine adopts a
       non-empty live store once `wacli auth status` confirms it. Pi check pending.
 - [ ] **Both-button reset gesture** — see T7 discussion (power-on, both
