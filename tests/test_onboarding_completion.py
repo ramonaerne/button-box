@@ -115,6 +115,11 @@ class CompletionTests(unittest.TestCase):
         self.assertEqual(self.complete(**options), {"has_cards": False})
         commands = [call[0] for call in self.calls]
         self.assertNotIn(["systemctl", "enable", "messagebox-nfc.service"], commands)
+        self.assertIn(
+            ["systemctl", "enable", "messagebox-button.service", "messagebox-sync.service", "messagebox-poller.service"],
+            commands,
+        )
+        self.assertIn(["systemctl", "disable", "messagebox-dash.service"], commands)
         self.assertIn(["systemctl", "start", "messagebox.target"], commands)
         self.assertFalse(self.enabled.exists())
 

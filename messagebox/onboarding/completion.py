@@ -152,7 +152,13 @@ def complete(
         queue_reconcile(run=run, pending_path=pending_path, reason="completion")
         removed_gate = False
         try:
-            run(["systemctl", "enable", *RUNTIME_UNITS], check=True)
+            if channels:
+                # Channel boxes keep the no-login dashboard off after setup; changes
+                # go through a full reset, or a developer starts it over SSH.
+                run(["systemctl", "enable", *(u for u in RUNTIME_UNITS if u != "messagebox-dash.service")], check=True)
+                run(["systemctl", "disable", "messagebox-dash.service"], check=True)
+            else:
+                run(["systemctl", "enable", *RUNTIME_UNITS], check=True)
             # The reader remains available so caregivers can pair cards later.
             # With zero mappings it cannot affect the default-recipient route.
             if not channels:
