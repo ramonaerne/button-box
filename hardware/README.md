@@ -23,7 +23,7 @@ Two build versions exist: the **US reference build** below (pairs with the [Orig
 The **Approx. total** covers only the rows above. A complete build also needs the
 NFC cards or tokens, hook-up wire and insulated connectors, a microSD card reader,
 and an enclosure, all listed under "You will also need" in the
-[README](../README.md). Nothing in the table above connects the button to the
+[README](../README-upstream.md). Nothing in the table above connects the button to the
 GPIO header.
 
 The card reader is easy to overlook: many current laptops have no SD slot at all,
@@ -95,7 +95,7 @@ those pins instead. Do not combine one wiring layout with the other settings.
 
 Before applying power, independently check header orientation, every
 connection, LED current limiting, and the module's I²C mode. Then follow the
-[hardware test](../README.md#step-8--test-the-hardware). The image and the
+[hardware test](../README-upstream.md#step-8--test-the-hardware). The image and the
 configuration comparison have been reviewed against the repository; physical
 GPIO, LED, and NFC operation with this exact layout has not been verified as
 part of this contribution.

@@ -7,13 +7,13 @@ Automated tests and repository review do not prove a physical Pi, phone, Wi-Fi,
 GPIO, NFC, audio, or WhatsApp journey. Please say exactly what you tested when
 reporting success or opening a pull request.
 
-Each detailed step in the [build guide](README.md#build-a-button-box) ends with
+Each detailed step in the [build guide](README-upstream.md#build-a-button-box) ends with
 a **Done when** checkpoint. If the observed result differs, stop there and
 troubleshoot instead of pushing ahead.
 
 ## Parts and enclosure
 
-This is our current [reference build](README.md#parts-with-purchase-links).
+This is our current [reference build](README-upstream.md#parts-with-purchase-links).
 Other USB speakers and microphones, and other GPIO-connected buttons, may work
 electrically and with the software, but each substitution is unvalidated. The
 printable enclosure was designed for the parts in this list. If you change the
