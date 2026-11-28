@@ -494,11 +494,6 @@ function renderRecipientManager(data) {
   document.getElementById("manager-nfc-actions").hidden = buttons;
   // Choosing a button approves the chat, so the separate Allow steps are not needed.
   document.getElementById("manual-allow").hidden = buttons;
-  const finish = document.getElementById("finish-buttons");
-  finish.hidden = !buttons || currentState?.mode === "RUNTIME";
-  finish.disabled = !(currentState?.channels || []).every(
-    (channel) => data.recipients.some((recipient) => recipient.button === channel.id),
-  );
   document.getElementById("manager-lede").textContent = buttons
     ? "Put an allowed chat on the green or red button. Tap plays its messages; hold records a reply to it."
     : "Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.";
@@ -1006,6 +1001,10 @@ function renderSetup(state) {
       taskStatus("Receive, play, record, and send a test message", progress.first_message, activeSetup ? "#continue" : "#activity"),
     ]),
   );
+  // Channel boxes have no NFC step to finish from; finish here once the required tasks are done.
+  const finish = document.getElementById("finish-buttons");
+  finish.hidden = !(activeSetup && channelBox(state));
+  finish.disabled = ![progress.wifi, progress.whatsapp, progress.recipient].every((status) => status === "complete");
   document.getElementById("optional-tasks").replaceChildren(
     ...(channelBox(state) ? [] : [
       taskStatus("Pair Family cards", progress.nfc, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
