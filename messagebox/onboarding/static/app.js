@@ -14,7 +14,6 @@ const views = [
   "pairing-error",
   "ready",
   "recipients",
-  "buttons",
   "deferred",
   "voice-test",
   "voice-success",
@@ -30,7 +29,7 @@ const views = [
 const activePairingStates = new Set(["starting", "code_pending", "bootstrapping", "verifying"]);
 const cloudDashboard = "https://button.box/dashboard";
 const legacyViews = new Set([
-  "whatsapp", "code", "pairing-progress", "pairing-error", "ready", "recipients", "buttons",
+  "whatsapp", "code", "pairing-progress", "pairing-error", "ready", "recipients",
   "deferred", "voice-test", "voice-success", "recipient-manager", "nfc", "nfc-choose",
   "nfc-mapped", "nfc-success", "nfc-unavailable",
 ]);
@@ -310,7 +309,7 @@ function applyWhatsAppState(state, { manage = false } = {}) {
     if (manage) {
       showView("ready");
     } else if (channelBox(state)) {
-      loadButtons();
+      location.hash = "recipients";
     } else {
       applyRecipientState(state.recipient_setup, state.nfc_setup);
     }
@@ -493,6 +492,13 @@ function renderRecipientManager(data) {
   // Channel boxes route by button: no default recipient and no Family cards.
   document.querySelector("#recipient-manager-view .manager-next").hidden = buttons;
   document.getElementById("manager-nfc-actions").hidden = buttons;
+  // Choosing a button approves the chat, so the separate Allow steps are not needed.
+  document.getElementById("manual-allow").hidden = buttons;
+  const finish = document.getElementById("finish-buttons");
+  finish.hidden = !buttons || currentState?.mode === "RUNTIME";
+  finish.disabled = !(currentState?.channels || []).every(
+    (channel) => data.recipients.some((recipient) => recipient.button === channel.id),
+  );
   document.getElementById("manager-lede").textContent = buttons
     ? "Put an allowed chat on the green or red button. Tap plays its messages; hold records a reply to it."
     : "Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.";
@@ -523,10 +529,12 @@ function renderRecipientManager(data) {
     return recipientRow(recipient, actions);
   }));
   document.getElementById("available-recipient-list").replaceChildren(
-    ...available.map((recipient) => recipientRow(
-      recipient,
-      [{ action: "add", label: "Allow" }],
-    )),
+    ...available.map((recipient) => {
+      if (!buttons) return recipientRow(recipient, [{ action: "add", label: "Allow" }]);
+      const row = recipientRow(recipient);
+      row.append(buttonPicker(recipient));
+      return row;
+    }),
   );
   document.getElementById("manager-empty").hidden = available.length !== 0;
 }
@@ -581,57 +589,6 @@ async function moveToButton(recipient, select) {
     status.textContent = "Saved.";
   } catch (error) {
     await loadRecipients({ manager: true });
-    status.textContent = error.message;
-  }
-}
-
-function renderButtons(data) {
-  const channels = currentState?.channels || [];
-  const choices = data.recipients.filter((recipient) => recipient.available || recipient.configured);
-  document.getElementById("button-pickers").replaceChildren(...channels.map((channel) => {
-    const bound = choices.find((recipient) => recipient.button === channel.id);
-    const label = document.createElement("label");
-    label.textContent = buttonNames[channel.id] || `Button ${channel.id}`;
-    const select = document.createElement("select");
-    const placeholder = new Option("Choose a chat…", "", !bound, !bound);
-    placeholder.disabled = true;
-    select.append(placeholder, ...choices.map((recipient) => new Option(
-      recipient.kind === "group" ? `${recipient.label} (group)` : recipient.label,
-      recipient.token,
-      false,
-      recipient.token === bound?.token,
-    )));
-    select.addEventListener("change", () => bindButton(channel.id, select));
-    label.append(select);
-    return label;
-  }));
-  document.getElementById("buttons-empty").hidden = choices.length !== 0;
-  const finish = document.getElementById("finish-buttons");
-  finish.hidden = currentState?.mode === "RUNTIME";
-  finish.disabled = !channels.every((channel) => choices.some((recipient) => recipient.button === channel.id));
-}
-
-async function loadButtons({ refresh = false } = {}) {
-  const status = document.getElementById("buttons-status");
-  status.textContent = refresh ? "Refreshing WhatsApp…" : "";
-  try {
-    renderButtons(refresh ? await formRequest("/recipients/refresh") : await request("/api/recipients"));
-    status.textContent = refresh ? "WhatsApp refreshed." : "";
-  } catch (error) {
-    status.textContent = error.message;
-  }
-  showView("buttons");
-}
-
-async function bindButton(channel, select) {
-  select.disabled = true;
-  const status = document.getElementById("buttons-status");
-  try {
-    renderButtons(await formRequest("/recipients/bind", { channel, token: select.value }));
-    status.textContent = "Saved.";
-  } catch (error) {
-    // Reload so the picker shows the binding that is actually stored.
-    await loadButtons();
     status.textContent = error.message;
   }
 }
@@ -1043,7 +1000,7 @@ function renderSetup(state) {
     taskStatus(cloud ? "Press the button and name your box" : "Link WhatsApp", progress.whatsapp, cloud ? cloudDashboard : "#whatsapp"),
     // After setup, channel boxes assign buttons in Manage chats and buttons.
     ...(channelBox(state)
-      ? (activeSetup ? [taskStatus("Choose chats for the green and red buttons", progress.recipient, "#buttons")] : [])
+      ? (activeSetup ? [taskStatus("Choose chats for the green and red buttons", progress.recipient, "#recipients")] : [])
       : [taskStatus("Choose a default recipient", progress.recipient, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced")]),
     ...(channelBox(state) ? [] : [
       taskStatus("Receive, play, record, and send a test message", progress.first_message, activeSetup ? "#continue" : "#activity"),
@@ -1410,12 +1367,12 @@ async function route() {
     applyState(currentState);
     return;
   }
-  if (isCloud() && ["whatsapp", "recipient-picker", "recipients", "buttons"].includes(routeName)) {
+  if (isCloud() && ["whatsapp", "recipient-picker", "recipients"].includes(routeName)) {
     showMainRoute("setup");
     location.replace("#setup");
     return;
   }
-  const navRoute = ["continue", "whatsapp", "recipient-picker", "recipients", "buttons"].includes(routeName)
+  const navRoute = ["continue", "whatsapp", "recipient-picker", "recipients"].includes(routeName)
     ? (currentState.mode === "RUNTIME" ? "advanced" : "setup") : routeName;
   document.querySelectorAll("[data-route]").forEach((link) => {
     link.setAttribute("aria-current", link.dataset.route === navRoute ? "page" : "false");
@@ -1432,10 +1389,6 @@ async function route() {
     } else {
       applyWhatsAppState(currentState, { manage: true });
     }
-    return;
-  }
-  if (routeName === "buttons") {
-    await loadButtons();
     return;
   }
   if (routeName === "recipient-picker") {
@@ -1623,9 +1576,8 @@ document.getElementById("keep-account").addEventListener("click", () => {
 });
 document.getElementById("unlink-form").addEventListener("submit", unlinkWhatsApp);
 document.getElementById("continue-recipients").addEventListener("click", () => {
-  location.hash = channelBox() ? "buttons" : "recipient-picker";
+  location.hash = channelBox() ? "recipients" : "recipient-picker";
 });
-document.getElementById("refresh-buttons").addEventListener("click", () => loadButtons({ refresh: true }));
 document.getElementById("finish-buttons").addEventListener("click", () => completeOnboarding("done"));
 document.getElementById("refresh-recipients").addEventListener("click", () => loadRecipients({ refresh: true }));
 document.getElementById("defer-recipients").addEventListener("click", deferRecipients);

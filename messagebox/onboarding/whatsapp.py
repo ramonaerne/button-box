@@ -1225,6 +1225,9 @@ class WhatsAppPairingClient:
             {"action": "recipient_rename", "token": token, "name": name}
         )
 
+    def recipient_unbind(self, channel):
+        return self._request({"action": "recipient_unbind", "channel": channel})
+
     def recipient_bind(self, channel, token):
         return self._request(
             {"action": "recipient_bind", "channel": channel, "token": token}
@@ -1287,6 +1290,8 @@ class _PairingHandler(socketserver.StreamRequestHandler):
                 state = self.server.engine.recipient_rename(
                     request["token"], request["name"]
                 )
+            elif action == "recipient_unbind" and set(request) == {"action", "channel"}:
+                state = self.server.engine.recipient_unbind(request["channel"])
             elif action == "recipient_bind" and set(request) == {
                 "action", "channel", "token"
             }:

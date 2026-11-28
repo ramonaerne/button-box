@@ -1180,6 +1180,7 @@ def create_app(
                 "/recipients/rename",
                 "/recipients/defer",
                 "/recipients/bind",
+                "/recipients/unbind",
             }:
                 _require_same_origin(environ, expected_origin)
                 if selected_mode != "HOME" or store.load()["phase"] != WHATSAPP_READY:
@@ -1190,6 +1191,10 @@ def create_app(
                         if document:
                             raise RequestError("400 Bad Request", "Invalid refresh request")
                         result = whatsapp.recipient_list(refresh=True)
+                    elif path == "/recipients/unbind":
+                        if set(document) != {"channel"} or document["channel"] not in channels:
+                            raise RequestError("400 Bad Request", "Invalid button request")
+                        result = whatsapp.recipient_unbind(document["channel"])
                     elif path == "/recipients/bind":
                         if (
                             set(document) != {"channel", "token"}
@@ -1356,6 +1361,7 @@ def create_app(
                 "/recipients/default",
                 "/recipients/defer",
                 "/recipients/bind",
+                "/recipients/unbind",
                 "/nfc/start",
                 "/nfc/retry",
                 "/nfc/reassign",
@@ -1434,6 +1440,7 @@ def _allowed_methods(path):
         "/recipients/default": "POST",
         "/recipients/defer": "POST",
         "/recipients/bind": "POST",
+        "/recipients/unbind": "POST",
         "/nfc/start": "POST",
         "/nfc/retry": "POST",
         "/nfc/reassign": "POST",

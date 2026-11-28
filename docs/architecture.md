@@ -212,7 +212,8 @@ replaced by button binding: the portal lists the same opaque recipient tokens,
 and `/recipients/bind` asks the pairing worker to approve that chat and bind it
 to one button. Completion requires every configured button to be bound, needs
 no default recipient or voice proof, and never enables NFC; both NFC units
-skip via `ExecCondition`. The runtime dashboard offers the same binding view.
+skip via `ExecCondition`. Setup and the runtime dashboard both bind in the
+recipient manager (`/recipients/bind`, `/recipients/unbind`).
 
 Skip or Done creates a fixed, content-free completion request. The root gate
 validates the completed recipient state and default, enables the button, sync,

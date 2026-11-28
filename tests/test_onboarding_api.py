@@ -192,6 +192,13 @@ class FakeWhatsApp:
         self.calls.append(("recipient_rename", token, name))
         return self.recipient_state()
 
+    def recipient_unbind(self, channel):
+        self.calls.append(("recipient_unbind", channel))
+        for recipient in self.recipient["recipients"]:
+            if recipient.get("button") == channel:
+                recipient["button"] = None
+        return self.recipient_state()
+
     def recipient_bind(self, channel, token):
         self.calls.append(("recipient_bind", channel, token))
         for recipient in self.recipient["recipients"]:
@@ -1425,6 +1432,13 @@ class OnboardingAPITests(unittest.TestCase):
         self.assertEqual(taken["status"], "409 Conflict")
         self.assertIn(b"already on the other button", taken["body"])
         self.assertEqual(client.form("POST", "/nfc/start", {})["status"], "404 Not Found")
+        self.assertEqual(client.form("POST", "/recipients/unbind", {"channel": "5"})["status"], "400 Bad Request")
+        client.form("POST", "/recipients/bind", {"channel": "2", "token": red})
+        client.form("POST", "/recipients/unbind", {"channel": "2"})
+        self.assertEqual(
+            client.form("POST", "/onboarding/complete", {"intent": "done"})["status"],
+            "409 Conflict",
+        )
         client.form("POST", "/recipients/bind", {"channel": "2", "token": red})
 
         state = json.loads(client.request("GET", "/api/state")["body"])

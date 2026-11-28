@@ -196,6 +196,9 @@ class WhatsAppPairingTests(unittest.TestCase):
         from messagebox.onboarding.whatsapp import _PairingServer
 
         class Engine:
+            def recipient_unbind(self, channel):
+                return {"unbound": channel}
+
             def recipient_bind(self, channel, token):
                 if token == "taken":
                     raise PairingError("button_chat_taken")
@@ -211,6 +214,7 @@ class WhatsAppPairingTests(unittest.TestCase):
             try:
                 client = WhatsAppPairingClient(path)
                 self.assertEqual(client.recipient_bind("1", "group"), {"bound": ["1", "group"]})
+                self.assertEqual(client.recipient_unbind("1"), {"unbound": "1"})
                 with self.assertRaisesRegex(PairingError, "^button_chat_taken$"):
                     client.recipient_bind("2", "taken")
                 with self.assertRaisesRegex(PairingError, "^pairing_request_failed$"):
