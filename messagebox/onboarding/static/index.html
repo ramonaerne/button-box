@@ -319,6 +319,22 @@
       <p id="recipient-status" class="field-help" role="status" aria-live="polite"></p>
     </section>
 
+    <section class="card" id="buttons-view" aria-labelledby="buttons-title" hidden>
+      <p class="eyebrow">Button setup</p>
+      <h1 id="buttons-title" tabindex="-1">Who does each button message?</h1>
+      <p class="lede">Choose one WhatsApp chat or group for each button. Tap plays its messages; hold records a reply to it.</p>
+      <div id="button-pickers"></div>
+      <div id="buttons-empty" class="notice" hidden>
+        <strong>No conversations found yet</strong>
+        <span>Send a message in each group from your phone, then refresh this list.</span>
+      </div>
+      <div class="button-row">
+        <button type="button" id="finish-buttons">Finish setup</button>
+        <button type="button" id="refresh-buttons" class="secondary">Refresh WhatsApp</button>
+      </div>
+      <p id="buttons-status" class="field-help" role="status" aria-live="polite"></p>
+    </section>
+
     <section class="card" id="deferred-view" aria-labelledby="deferred-title" hidden>
       <p class="eyebrow">Setup paused</p>
       <h1 id="deferred-title" tabindex="-1">Come back when you’re ready</h1>

@@ -727,6 +727,15 @@ class PairingEngine:
         except RecipientError as exc:
             raise PairingError(str(exc)) from exc
 
+    def recipient_bind(self, channel, token):
+        self._require_ready()
+        try:
+            return self.recipients.bind_button(
+                channel, token, excluded_jid=self._live_account_jid()
+            )
+        except RecipientError as exc:
+            raise PairingError(str(exc)) from exc
+
     def _pair(self, phone):
         process = None
         try:
@@ -1183,6 +1192,11 @@ class WhatsAppPairingClient:
             {"action": "recipient_rename", "token": token, "name": name}
         )
 
+    def recipient_bind(self, channel, token):
+        return self._request(
+            {"action": "recipient_bind", "channel": channel, "token": token}
+        )
+
 
 class _PairingHandler(socketserver.StreamRequestHandler):
     def handle(self):
@@ -1240,6 +1254,12 @@ class _PairingHandler(socketserver.StreamRequestHandler):
                 state = self.server.engine.recipient_rename(
                     request["token"], request["name"]
                 )
+            elif action == "recipient_bind" and set(request) == {
+                "action", "channel", "token"
+            }:
+                state = self.server.engine.recipient_bind(
+                    request["channel"], request["token"]
+                )
             else:
                 raise PairingError("invalid_action")
             return self._respond({"ok": True, "state": state})
@@ -1253,6 +1273,7 @@ class _PairingHandler(socketserver.StreamRequestHandler):
                 "recipient_setup_started",
                 "recipient_matches_linked_account",
                 "recipient name is invalid",
+                "button_chat_taken",
             }:
                 error = "pairing_request_failed"
             return self._respond({"ok": False, "error": error})

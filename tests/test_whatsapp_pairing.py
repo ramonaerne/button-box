@@ -2,6 +2,7 @@ import json
 import os
 import re
 import tempfile
+import threading
 import unittest
 from pathlib import Path
 from types import SimpleNamespace
@@ -190,6 +191,33 @@ class WhatsAppPairingTests(unittest.TestCase):
                 request.assert_called_once_with(
                     {"action": action}, timeout=ACCOUNT_CLEANUP_CLIENT_TIMEOUT
                 )
+
+    def test_button_binding_crosses_the_worker_socket_with_safe_errors(self):
+        from messagebox.onboarding.whatsapp import _PairingServer
+
+        class Engine:
+            def recipient_bind(self, channel, token):
+                if token == "taken":
+                    raise PairingError("button_chat_taken")
+                if token == "private":
+                    raise PairingError("contact store detail")
+                return {"bound": [channel, token]}
+
+        with tempfile.TemporaryDirectory() as directory:
+            path = os.path.join(directory, "pairing.sock")
+            server = _PairingServer(path, Engine())
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            try:
+                client = WhatsAppPairingClient(path)
+                self.assertEqual(client.recipient_bind("1", "group"), {"bound": ["1", "group"]})
+                with self.assertRaisesRegex(PairingError, "^button_chat_taken$"):
+                    client.recipient_bind("2", "taken")
+                with self.assertRaisesRegex(PairingError, "^pairing_request_failed$"):
+                    client.recipient_bind("2", "private")
+            finally:
+                server.shutdown()
+                server.server_close()
 
     def test_phone_normalization_and_exact_auth_command(self):
         self.assertEqual(normalize_phone(" +1 415-555-0123 "), "+14155550123")

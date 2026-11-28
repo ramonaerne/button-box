@@ -207,6 +207,13 @@ an opaque recipient token. Browser responses contain labels, kinds, default
 state, counts, and progress only. Assignment reuses the contact store's atomic
 one-tag/one-recipient transaction; tags are never written.
 
+On a channel box (`MSGBOX_CHANNEL_PINS` set), the steps after WhatsApp are
+replaced by button binding: the portal lists the same opaque recipient tokens,
+and `/recipients/bind` asks the pairing worker to approve that chat and bind it
+to one button. Completion requires every configured button to be bound, needs
+no default recipient or voice proof, and never enables NFC; both NFC units
+skip via `ExecCondition`. The runtime dashboard offers the same binding view.
+
 Skip or Done creates a fixed, content-free completion request. The root gate
 validates the completed recipient state and default, enables the button, sync,
 poller, canonical dashboard, and NFC reader under `messagebox.target`, removes

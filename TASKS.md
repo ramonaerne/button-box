@@ -90,7 +90,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | D13 | The household picks only from a short list of approved chats (relatives) that the builder enters in the terminal. |
 | D14 | (2026-11-25, provisional) Keep **review before send** on (upstream default) for now. Revisit with a real mic before the gift ships (T12). Turning it off gives "hold to talk, release sends" (the original MODIFICATION.md idea) but removes the undo; the turn rule (T5) limits the cost of an accidental send. |
 | D16 | (2026-11-28) Replaces D2: no upstream PRs. The fork has drifted (Pi changes, new features) and stays a fork. T0 and T4 are dropped; "(upstream)" labels below are historical. Per-reply limit (D15) is final; no per-day limit. Signal stays deferred. |
-| D17 | (2026-11-28) Replaces D7, D8, D9, D12, D13 for rebinding: each button is bound once, in the terminal, to its own WhatsApp group. "Reassigning" means changing the group's members on a phone. No rebinding on the box, dashboard or portal. The household only redoes setup after a reset: hotspot, Wi-Fi, keep WhatsApp linked (relink stays optional via the dashboard's existing unlink). |
+| D17 | (2026-11-28) Replaces D7, D8, D9, D12, D13: each button is bound to its own WhatsApp group. "Reassigning" means changing the group's members on a phone. Binding happens in the setup page (replacing recipient + NFC steps) or the runtime dashboard, without box confirmation (accepted risk until the dashboard-off plan). Setup is redone after a reset: hotspot, Wi-Fi, WhatsApp, buttons. |
 | D15 | (2026-11-26) Replaces the one-turn rule: up to N sends per channel between replies, N set in the dashboard (off/1/2/3/5, default off). Reset when a newer reply is **played**, not just received. Per channel. Limit reached → wait tone only, mic stays closed. Not a security boundary: the dashboard has no login. |
 
 Accepted defaults: each channel binds one chat (person or group). Only
@@ -170,6 +170,35 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 
 ### Phase 2 (gift)
 
+- [~] **T7a Button binding replaces recipient + NFC setup** — code + tests
+      done 2026-11-28; Pi check pending (approved 2026-11-28). A channel box is one with
+      `MSGBOX_CHANNEL_PINS` set; single-button boxes keep today's flow.
+      1. Setup page, after WhatsApp: a "Buttons" step replaces default
+         recipient, voice test and NFC. Two pickers, "Green button"
+         (channel 1, GPIO25) and "Red button" (channel 2, GPIO8), list the
+         discovered chats (same tokens as the recipient list, modelled on
+         the NFC "Who is this card for?" view). Choosing one approves the
+         chat (adds it to contacts) and binds it. "Finish" is enabled once
+         both buttons are bound.
+      2. Binding goes through the existing WhatsApp pairing worker (it owns
+         the contacts store and recipient tokens): new action
+         `recipient_bind(channel, token)` →
+         `RecipientSetup.bind` → `ContactStore.add_contact` +
+         `bind_channel`. No new service.
+      3. No NFC services: on a channel box, `/onboarding/complete` and
+         `completion.py` require linked WhatsApp + bound buttons (no default
+         recipient, no voice proof), skip `nfc.finish()`/`nfc.status()`, and
+         do not enable `messagebox-nfc.service`.
+         `messagebox-onboarding-home.service` gets `Wants=` instead of
+         `Requires=` on the NFC worker, and setup masks both NFC units when
+         channel pins are set.
+      4. The same Buttons view is reachable in the runtime dashboard, bound
+         directly via `ContactStore` (`/api/contacts` `bind`/`unbind`).
+      *AC:* a reset channel box with no NFC reader reaches runtime through
+      the setup page by linking WhatsApp and binding both
+      buttons; NFC units never start; only discovered chats can be bound,
+      one chat per button; no JIDs in logs; single-button setup tests
+      unchanged.
 - [ ] **T7 Reset and hotspot setup on a channel box (D17)** — *AC:* the
       reset gesture puts the box back into hotspot setup and keeps WhatsApp,
       contacts and bindings. The portal does Wi-Fi only on a linked channel
@@ -196,6 +225,17 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       rebind confirmation, the microphone open only while recording, and a
       reboot. After a fresh boot, the **first** hold on each button records
       and sends (known gap above); recheck wiring if it fails. Then a Wi-Fi reset before shipping.
+
+### Later (optional)
+
+- [ ] **Reset reads channel pin 1** — `onboarding/reset.py` uses the first
+      button of `MSGBOX_CHANNEL_PINS` when set. Not needed while
+      `MSGBOX_BUTTON_PIN=25` is in the env.
+- [ ] **Keep WhatsApp linked across a reset** — the pairing engine treats a
+      filled live wacli store as linked, so setup after a reset skips the QR
+      step. Relinking stays possible via the dashboard's unlink.
+- [ ] **Both-button reset gesture** — see T7 discussion (power-on, both
+      buttons).
 
 ### Dev tooling
 

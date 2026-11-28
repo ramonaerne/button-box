@@ -13,7 +13,7 @@ import time
 from pathlib import Path
 
 from messagebox import cloud_setup, sound_pack
-from messagebox.contacts import ContactError, ContactStore
+from messagebox.contacts import ContactError, ContactStore, configured_channels
 from messagebox.cloud_device import CloudDeviceClient, CloudDeviceError
 from messagebox.onboarding.paths import (
     MODE_RECONCILE_PENDING_PATH,
@@ -122,6 +122,7 @@ def complete(
         if read_mode(enabled_path, trusted_uid=marker_uid) is not Mode.SETUP:
             raise RuntimeError("onboarding gate is unavailable")
         cloud_mode = os.environ.get("MSGBOX_TRANSPORT") == "cloud"
+        channels = [] if cloud_mode else configured_channels()
         if cloud_mode != (requested_transport == "cloud"):
             raise RuntimeError("completion transport does not match device configuration")
         if cloud_mode:
@@ -132,6 +133,12 @@ def complete(
             if claim.get("claimed") is not True:
                 raise RuntimeError("cloud claim is incomplete")
             cloud_setup.SetupGuide().advance({"scan", "press"}, "names")
+            has_cards = False
+        elif channels:
+            # Channel boxes route by button only: no default recipient or NFC.
+            bound = ContactStore(contacts_path).load()["channels"]
+            if any(channel not in bound for channel in channels):
+                raise RuntimeError("button setup is incomplete")
             has_cards = False
         else:
             recipient_setup = recipients or RecipientSetup(contacts_path=contacts_path)
@@ -148,7 +155,8 @@ def complete(
             run(["systemctl", "enable", *RUNTIME_UNITS], check=True)
             # The reader remains available so caregivers can pair cards later.
             # With zero mappings it cannot affect the default-recipient route.
-            run(["systemctl", "enable", "messagebox-nfc.service"], check=True)
+            if not channels:
+                run(["systemctl", "enable", "messagebox-nfc.service"], check=True)
             run(
                 [
                     "systemctl",

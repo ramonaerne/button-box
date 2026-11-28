@@ -46,7 +46,7 @@ from messagebox.guided_reply import (
 from messagebox.audio_requests import AudioRequests, OptionalAudioRequests, success_key
 from messagebox.played_history import archive_played_file, recent_reply_recipient
 from messagebox.listened_receipts import AnnouncementGate, ReceiptStore, parse_wacli_send_id
-from messagebox.contacts import _BOX_JID, MAX_CHANNELS, ContactError, ContactStore
+from messagebox.contacts import _BOX_JID, ContactError, ContactStore, parse_channel_pins
 from messagebox.nfc_state import AnnouncementStore, NfcError, SelectionStore, REANNOUNCE_COOLDOWN_S
 from messagebox.runtime_paths import APP_DIR, OUTBOX_DIR as DEFAULT_OUTBOX_DIR
 from messagebox.runtime_paths import QUEUE_DIR as DEFAULT_QUEUE_DIR
@@ -408,22 +408,6 @@ def queued(chat=None):
         for name in names
         if (queue_metadata(Path(QUEUE_DIR) / name) or {}).get("chat") == chat
     ]
-
-
-def parse_channel_pins(raw):
-    """Return [(channel, button_pin, led_pin)]; reject anything ambiguous."""
-    if not raw.strip():
-        return []
-    channels = []
-    for number, pair in enumerate(raw.split(","), start=1):
-        button_pin, separator, led_pin = pair.strip().partition(":")
-        if not separator:
-            raise ValueError("MSGBOX_CHANNEL_PINS entries must be BUTTON:LED")
-        channels.append((str(number), int(button_pin), int(led_pin)))
-    pins = [pin for _, button_pin, led_pin in channels for pin in (button_pin, led_pin)]
-    if len(set(pins)) != len(pins) or len(channels) > MAX_CHANNELS:
-        raise ValueError("MSGBOX_CHANNEL_PINS has duplicate pins or too many channels")
-    return channels
 
 
 class AnyButton:

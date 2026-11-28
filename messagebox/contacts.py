@@ -155,6 +155,27 @@ def _clean_channel(value: object) -> str:
     return str(int(text))
 
 
+def parse_channel_pins(raw):
+    """Return [(channel, button_pin, led_pin)]; reject anything ambiguous."""
+    if not raw.strip():
+        return []
+    channels = []
+    for number, pair in enumerate(raw.split(","), start=1):
+        button_pin, separator, led_pin = pair.strip().partition(":")
+        if not separator:
+            raise ValueError("MSGBOX_CHANNEL_PINS entries must be BUTTON:LED")
+        channels.append((str(number), int(button_pin), int(led_pin)))
+    pins = [pin for _, button_pin, led_pin in channels for pin in (button_pin, led_pin)]
+    if len(set(pins)) != len(pins) or len(channels) > MAX_CHANNELS:
+        raise ValueError("MSGBOX_CHANNEL_PINS has duplicate pins or too many channels")
+    return channels
+
+
+def configured_channels() -> list[str]:
+    """Button numbers this box has wired, from MSGBOX_CHANNEL_PINS; [] on single-button boxes."""
+    return [channel for channel, _, _ in parse_channel_pins(os.environ.get("MSGBOX_CHANNEL_PINS", ""))]
+
+
 def normalize_card_uid(value: object) -> str:
     """Return the canonical UID stored for a physical card."""
     return _normalize_uid(value)

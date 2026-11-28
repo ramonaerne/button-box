@@ -8,6 +8,7 @@ from unittest import mock
 
 from messagebox.onboarding.completion import complete, request_completion
 from messagebox import cloud_setup
+from messagebox.contacts import ContactStore
 from speaker_helpers import isolate_audio
 from test_nfc_pairing_onboarding import CARD_A, PERSON, completed_recipients
 
@@ -89,6 +90,33 @@ class CompletionTests(unittest.TestCase):
         self.assertIn(["systemctl", "start", "messagebox.target"], commands)
         self.assertFalse(self.enabled.exists())
         self.assertFalse(self.request.exists())
+
+    @mock.patch("messagebox.onboarding.completion.os.geteuid", return_value=0)
+    @mock.patch.dict(os.environ, {"MSGBOX_CHANNEL_PINS": "25:24,8:23"})
+    def test_channel_box_needs_both_buttons_bound_and_never_enables_nfc(self, _geteuid):
+        contacts_path = self.root / "channel-contacts.json"
+        store = ContactStore(contacts_path)
+        store.add_contact(PERSON, "Grandma")
+        store.add_contact("120363123456789@g.us", "Family")
+        store.bind_channel("1", "120363123456789@g.us")
+        options = dict(
+            request_path=self.request,
+            enabled_path=self.enabled,
+            contacts_path=contacts_path,
+            run=self.command_runner,
+            sleep=lambda _seconds: None,
+        )
+
+        with self.assertRaisesRegex(RuntimeError, "button setup is incomplete"):
+            self.complete(**options)
+        self.assertEqual(self.calls, [])
+
+        store.bind_channel("2", PERSON)
+        self.assertEqual(self.complete(**options), {"has_cards": False})
+        commands = [call[0] for call in self.calls]
+        self.assertNotIn(["systemctl", "enable", "messagebox-nfc.service"], commands)
+        self.assertIn(["systemctl", "start", "messagebox.target"], commands)
+        self.assertFalse(self.enabled.exists())
 
     @mock.patch("messagebox.onboarding.completion.os.geteuid", return_value=0)
     def test_handoff_restores_hostname_after_setup_publisher_exits(self, _geteuid):

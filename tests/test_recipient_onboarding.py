@@ -100,6 +100,33 @@ class RecipientSetupTests(unittest.TestCase):
         self.assertEqual(ContactStore(self.contacts_path).allowed_jids(), (GROUP,))
         self.assertEqual(changed["proof"], {"received": False, "played": False, "replied": False})
 
+    def test_buttons_bind_discovered_chats_without_default_or_voice_test(self):
+        listed = self.candidates()
+        tokens = {item["label"]: item["token"] for item in listed["recipients"]}
+
+        bound = self.setup.bind_button("1", tokens["Family"], excluded_jid=SECOND_PERSON)
+        self.setup.bind_button("2", tokens["+15551234567"])
+
+        contacts = ContactStore(self.contacts_path).load()
+        self.assertEqual(contacts["channels"], {"1": GROUP, "2": PERSON})
+        self.assertEqual(bound["status"], "choose")  # no voice test started
+        self.assertNotIn(GROUP, json.dumps(bound))
+        buttons = {item["label"]: item["button"] for item in self.setup.public_state()["recipients"]}
+        self.assertEqual(buttons, {"Family": "1", "+15551234567": "2"})
+        self.assertFalse(self.request_path.exists())
+
+    def test_button_binding_refuses_taken_chat_and_linked_account(self):
+        tokens = {item["label"]: item["token"] for item in self.candidates()["recipients"]}
+        self.setup.bind_button("1", tokens["Family"])
+
+        with self.assertRaisesRegex(RecipientError, "button_chat_taken"):
+            self.setup.bind_button("2", tokens["Family"])
+        with self.assertRaisesRegex(RecipientError, "recipient_matches_linked_account"):
+            self.setup.bind_button("2", tokens["+15551234567"], excluded_jid=PERSON)
+        with self.assertRaises(RecipientError):
+            self.setup.bind_button("2", "recipient-token-9999")
+        self.assertEqual(ContactStore(self.contacts_path).load()["channels"], {"1": GROUP})
+
     def test_voice_request_failure_keeps_selection_retryable(self):
         listed = self.candidates()
         token = next(

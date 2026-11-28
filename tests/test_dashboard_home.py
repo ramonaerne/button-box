@@ -246,5 +246,26 @@ class DashboardHomeTests(unittest.TestCase):
             cloud.assert_not_called()
 
 
+    def test_channel_box_runtime_reports_button_bindings_instead_of_voice_proof(self):
+        environ = {"MSGBOX_TRANSPORT": "wacli", "MSGBOX_CHANNEL_PINS": "25:24,8:23"}
+        with patch.dict("os.environ", environ), patch.object(
+            dashboard, "contacts_store"
+        ) as contacts, patch.object(dashboard, "RecipientSetup") as proof, patch.object(
+            dashboard.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="{}")
+        ), patch.object(dashboard, "runtime_running", return_value=True):
+            contacts.return_value.public_view.return_value = {
+                "contacts": {"synthetic-group": {}}, "default_recipient": "synthetic-group",
+            }
+            contacts.return_value.load.return_value = {"channels": {"1": "synthetic-group"}}
+            result = dashboard.runtime_state()
+            self.assertEqual(result["channels"], [{"id": "1", "bound": True}, {"id": "2", "bound": False}])
+            self.assertEqual(result["setup"]["recipient"], "attention")
+
+            contacts.return_value.load.return_value = {"channels": {"1": "a", "2": "b"}}
+            result = dashboard.runtime_state()
+            self.assertEqual(result["setup"]["recipient"], "complete")
+            self.assertEqual(result["setup"]["first_message"], "complete")
+            proof.assert_not_called()
+
 if __name__ == "__main__":
     unittest.main()

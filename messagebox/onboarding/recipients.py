@@ -434,6 +434,25 @@ class RecipientSetup:
         return self.add(token, excluded_jid=excluded_jid)
 
     @synchronized
+    def bind_button(self, channel, token, *, excluded_jid=None):
+        """Approve a discovered chat if needed and bind it to one button."""
+        state = self._load()
+        candidate = self._candidate(state, token, require_available=False)
+        if candidate["jid"] == excluded_jid:
+            raise RecipientError("recipient_matches_linked_account")
+        try:
+            if self.contacts.contact(candidate["jid"]) is None:
+                if not candidate["available"]:
+                    raise RecipientError("recipient is no longer available; refresh and try again")
+                self.contacts.add_contact(candidate["jid"], candidate["label"])
+            self.contacts.bind_channel(channel, candidate["jid"])
+        except ContactError as exc:
+            if str(exc) == "contact is already bound to another channel":
+                raise RecipientError("button_chat_taken") from exc
+            raise RecipientError(str(exc)) from exc
+        return self.public_state(state)
+
+    @synchronized
     def rename(self, token, name):
         state = self._load()
         candidate = self._candidate(state, token, require_available=False)
@@ -594,6 +613,7 @@ class RecipientSetup:
         state = self._refresh_proof(state or self._load())
         contacts = self.contacts.load()
         configured = contacts["contacts"]
+        buttons = {jid: channel for channel, jid in contacts["channels"].items()}
         recipients = []
         for token, candidate in state["candidates"].items():
             is_configured = candidate["jid"] in configured
@@ -622,6 +642,7 @@ class RecipientSetup:
                     "card_count": len(configured[candidate["jid"]]["card_uids"])
                     if is_configured
                     else 0,
+                    "button": buttons.get(candidate["jid"]),
                 }
             )
         recipients.sort(key=lambda item: (not item["is_default"], item["label"].casefold()))

@@ -16,6 +16,8 @@ EnvironmentFile=/run/messagebox-audio/audio.env
 Environment=HOME=/var/lib/messagebox
 SupplementaryGroups=i2c gpio
 UMask=0077
+# Channel boxes have no NFC reader; skip cleanly instead of failing.
+ExecCondition=+/bin/sh -c '! grep -Eq "^MSGBOX_CHANNEL_PINS=.+" /etc/messagebox/env'
 ExecStart=/opt/messagebox/venv-nfc/bin/python -u -m messagebox.nfc daemon
 Restart=always
 RestartSec=3
