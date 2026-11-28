@@ -210,8 +210,10 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       box: no WhatsApp relink, default-recipient, voice-gate or NFC step
       blocks completion, and completion does not enable NFC. Relinking to
       another account stays possible from the dashboard (existing unlink).
-- [~] **T6c WhatsApp logout recovery** (2026-11-28, replaces the LED-only
-      indicator) — code + tests done; Pi check pending. A root timer re-enters
+- [x] **T6c WhatsApp logout recovery** (2026-11-28, replaces the LED-only
+      indicator) — verified on the Pi 2026-11-28: phone-side logout, watcher
+      re-entered setup on the kept Wi-Fi, LEDs blinked, relink kept the
+      bindings (same account), Finish restored normal mode and the timer. A root timer re-enters
       setup on the current Wi-Fi after two clean "not authenticated" checks;
       the setup page offers pairing again; the same account keeps chats and
       bindings. *Pi test:* log the box out from the phone (Linked devices), wait
