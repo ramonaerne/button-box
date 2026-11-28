@@ -23,12 +23,12 @@ ONBOARDING_DATA_DIR=/var/lib/messagebox-onboarding
 SETTINGS_DIR=/var/lib/messagebox-settings
 CLOUD_DIR=/var/lib/messagebox-cloud
 SSH_TARGET=${MESSAGEBOX_SSH_TARGET:-}
-PACKAGE_PYTHON="controller_selector.py controller_slots.py __init__.py device_http.py software.py cloud_update.py maintenance.py cloud_boot_repair.py cloud_device.py cloud_claim.py cloud_runtime.py cloud_quiet.py audio_requests.py cloud_events.py cloud_voice.py cloud_setup.py speaker.py sound_pack.py qrcodegen.py button_send.py mic_capture.py contacts.py guided_reply.py identity.py listened_receipts.py message_age.py played_history.py
+PACKAGE_PYTHON="controller_selector.py controller_slots.py __init__.py device_http.py software.py cloud_update.py maintenance.py cloud_boot_repair.py cloud_device.py cloud_claim.py cloud_runtime.py cloud_quiet.py audio_requests.py cloud_events.py cloud_voice.py cloud_setup.py speaker.py sound_pack.py qrcodegen.py button_send.py mic_capture.py contacts.py guided_reply.py identity.py listened_receipts.py message_age.py played_history.py send_limit.py
 nfc.py nfc_state.py runtime_paths.py remote_access.py settings.py tailnet.py voicepoll.py wifi_change.py wifi_watchdog.py event_log.py"
 DASHBOARD_PYTHON="dashboard/__init__.py dashboard/app.py"
 ONBOARDING_PYTHON="onboarding/__init__.py onboarding/app.py onboarding/activity.py
 onboarding/comitup_adapter.py onboarding/connectivity.py onboarding/initialize.py
-onboarding/completion.py onboarding/mode.py onboarding/nfc.py onboarding/paths.py onboarding/recipients.py onboarding/reset.py onboarding/state.py
+onboarding/completion.py onboarding/mode.py onboarding/nfc.py onboarding/paths.py onboarding/recipients.py onboarding/relink_watch.py onboarding/reset.py onboarding/setup_lamp.py onboarding/state.py
 onboarding/voice_gate.py onboarding/whatsapp.py"
 STATIC_ASSETS="onboarding/static/app.js onboarding/static/clipboard.js onboarding/static/wifi-handoff.js onboarding/static/cloud-connect.html onboarding/static/cloud-connect.js onboarding/static/cloud-local.html onboarding/static/cloud-local.js onboarding/static/index.html onboarding/static/styles.css"
 
@@ -69,6 +69,7 @@ for path in \
   scripts/commands/messagebox-init-wifi-onboarding \
   scripts/dev/onboard.sh \
   scripts/dev/hardware-test.sh \
+  scripts/dev/virtual-buttons.py \
   scripts/messageboxctl \
   messagebox/syncloop.sh \
   systemd/messagebox-update-selector.service \
@@ -82,6 +83,8 @@ for path in \
   systemd/messagebox-dash.service \
   systemd/messagebox-wifi-change.service \
   systemd/messagebox-wifi-change.path \
+  systemd/messagebox-relink-watch.service \
+  systemd/messagebox-relink-watch.timer \
   systemd/messagebox-wifi-watchdog.service \
   systemd/messagebox-wifi-watchdog.timer \
   systemd/messagebox-nfc.service \
@@ -100,6 +103,7 @@ for path in \
   systemd/onboarding/messagebox-onboarding-voice.target \
   systemd/onboarding/messagebox-whatsapp-pairing.service \
   systemd/onboarding/messagebox-wifi-reset.service \
+  systemd/onboarding/messagebox-setup-lamp.service \
   systemd/messagebox.target \
   systemd/messagebox.tmpfiles.conf; do
   if [ ! -r "$REPO_DIR/$path" ]; then
@@ -165,6 +169,7 @@ for unit in \
   comitup.service \
   comitup-web.service \
   messagebox-onboarding-home.service \
+  messagebox-setup-lamp.service \
   messagebox-onboarding-nfc.service \
   messagebox-onboarding-complete.service \
   messagebox-onboarding-button.service \
@@ -276,6 +281,8 @@ sudo install -o root -g root -m 0755 \
   "$REPO_DIR/messagebox/syncloop.sh" "$PACKAGE_DIR/syncloop.sh"
 sudo install -o root -g root -m 0755 \
   "$REPO_DIR/scripts/dev/hardware-test.sh" "$APP_DIR/dev/hardware-test.sh"
+sudo install -o root -g root -m 0755 \
+  "$REPO_DIR/scripts/dev/virtual-buttons.py" "$APP_DIR/dev/virtual-buttons.py"
 sudo rm -rf \
   "$APP_DIR/__pycache__" \
   "$APP_DIR/dashboard_static" \
@@ -389,6 +396,9 @@ sudo install -o root -g root -m 0644 \
 sudo install -o root -g root -m 0644 \
   "$REPO_DIR/systemd/messagebox-wifi-change.path" \
   /etc/systemd/system/messagebox-wifi-change.path
+for name in messagebox-relink-watch.service messagebox-relink-watch.timer; do
+  sudo install -o root -g root -m 0644 "$REPO_DIR/systemd/$name" "/etc/systemd/system/$name"
+done
 sudo install -o root -g root -m 0644 \
   "$REPO_DIR/systemd/messagebox.tmpfiles.conf" /etc/tmpfiles.d/messagebox.conf
 sudo install -o root -g root -m 0755 \
@@ -420,7 +430,8 @@ sudo install -o root -g root -m 0644 \
   /etc/systemd/system/comitup-web.service.d/messagebox.conf
 for name in messagebox-onboarding-home messagebox-onboarding-button \
   messagebox-onboarding-voice-gate messagebox-onboarding-nfc \
-  messagebox-onboarding-complete messagebox-whatsapp-pairing messagebox-wifi-reset; do
+  messagebox-onboarding-complete messagebox-whatsapp-pairing messagebox-wifi-reset \
+  messagebox-setup-lamp; do
   sudo install -o root -g root -m 0644 \
     "$REPO_DIR/systemd/onboarding/$name.service" "/etc/systemd/system/$name.service"
 done
@@ -455,11 +466,14 @@ sudo systemd-analyze verify \
   /etc/systemd/system/messagebox-dash.service \
   /etc/systemd/system/messagebox-wifi-change.service \
   /etc/systemd/system/messagebox-wifi-change.path \
+  /etc/systemd/system/messagebox-relink-watch.service \
+  /etc/systemd/system/messagebox-relink-watch.timer \
   /etc/systemd/system/messagebox-wifi-watchdog.service \
   /etc/systemd/system/messagebox-wifi-watchdog.timer \
   /etc/systemd/system/messagebox-nfc.service \
   /usr/lib/systemd/system/comitup-web.service \
   /etc/systemd/system/messagebox-onboarding-home.service \
+  /etc/systemd/system/messagebox-setup-lamp.service \
   /etc/systemd/system/messagebox-onboarding-nfc.service \
   /etc/systemd/system/messagebox-onboarding-complete.service \
   /etc/systemd/system/messagebox-onboarding-complete.path \

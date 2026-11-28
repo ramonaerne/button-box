@@ -162,6 +162,19 @@ Capable boxes advertise `announce_messages_voice: true`. Cloud must not send the
 key to boxes without that capability; older boxes skip it and report it in
 `ignored_settings`.
 
+### Sends per reply
+
+`sends_per_reply` is one of 0, 1, 2, 3 or 5; 0 (the default, also for settings
+saved by older releases) means no limit. It only acts on wacli boxes with
+button channels (`MSGBOX_CHANNEL_PINS`): after N sends from one button, a hold
+on that button plays the "oops" cue and never opens the microphone, until a
+reply from that button's chat that arrived after the last counted send has
+been played. Only sends accepted into the outbox count. Counters are kept per
+channel in `/var/lib/messagebox/state/channel-sends.json` with a hash of the
+chat, never the chat identifier, and restart at zero after a rebind. Channel
+boxes cannot run in Cloud mode, so Cloud boxes accept and store the key
+without effect. Older boxes skip it and report it in `ignored_settings`.
+
 ## Recording modes
 
 `talk_mode` is `tap` or `hold`; `review_before_send` is boolean. Fresh settings

@@ -235,6 +235,20 @@ class SettingsStoreTests(unittest.TestCase):
             with self.subTest(invalid=invalid), self.assertRaises(SettingsError):
                 validate({**initial, "announce_messages_voice": invalid})
 
+    def test_sends_per_reply_defaults_off_migrates_and_rejects_other_values(self):
+        initial = defaults({"TZ": "UTC"})
+        self.assertEqual(initial["sends_per_reply"], 0)
+        old = {key: value for key, value in initial.items() if key != "sends_per_reply"}
+        self.assertEqual(validate(old), initial)  # Settings saved before the limit existed.
+        store = SettingsStore(self.path, environ={"TZ": "UTC"})
+        current, _ = store.load()
+        saved = store.update(self.candidate(current, sends_per_reply=2), current["revision"])
+        self.assertEqual(store.load(), (saved, False))
+        self.assertEqual(saved["sends_per_reply"], 2)
+        for invalid in (4, -1, 2.0, True, "1", None):
+            with self.subTest(invalid=invalid), self.assertRaises(SettingsError):
+                validate({**initial, "sends_per_reply": invalid})
+
     def test_unknown_keys_are_skipped_without_weakening_known_validation(self):
         document = defaults({"TZ": "UTC"})
         self.assertEqual(validate({**document, "future_setting": {"anything": True}}), document)

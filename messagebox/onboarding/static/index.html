@@ -65,6 +65,7 @@
       <p class="lede">Complete required tasks in any order available. Every completed task is saved.</p>
       <h2 class="section-title">Required</h2>
       <ol class="task-list" id="required-tasks"><li class="task-row" role="status">Checking setup tasks…</li></ol>
+      <button type="button" id="finish-buttons" hidden>Finish setup</button>
       <h2 class="section-title">Optional</h2>
       <ol class="task-list" id="optional-tasks"></ol>
     </section>
@@ -90,6 +91,9 @@
         <label for="max-recording">Maximum message length</label>
         <select id="max-recording" name="max_recording_seconds"><option value="30">30 seconds</option><option value="60">60 seconds</option><option value="120">120 seconds</option></select>
         <p class="field-help">Applies to both modes. Tap to talk deletes the recording if there is no second tap before the limit. Recordings under 1.5 seconds or without voice are deleted.</p>
+        <label for="sends-per-reply">Messages per reply</label>
+        <select id="sends-per-reply" name="sends_per_reply"><option value="0">No limit</option><option value="1">1 message</option><option value="2">2 messages</option><option value="3">3 messages</option><option value="5">5 messages</option></select>
+        <p class="field-help">Boxes with one button per chat only. After this many messages to a chat, that button waits until a newer reply from the chat has been played.</p>
 
         <h2>Sounds and notifications</h2>
         <label for="ringtone">Ringtone</label>
@@ -113,9 +117,11 @@
         <p id="timezone-help" class="field-help"></p>
         <p class="field-help">During quiet hours, messages queue without ringing or lighting the lamp. Deliberate playback still works. When quiet hours end, waiting messages signal once using your arrival setting, as soon as the box is idle within 30 minutes.</p>
 
-        <h2>Family cards</h2>
-        <label class="choice"><input id="nfc-beep" name="nfc_confirmation_beep" type="checkbox"> Family confirmation beep</label>
-        <label class="choice"><input id="card-name-prompt" name="card_name_prompt" type="checkbox"> Say the name when a card is tapped</label>
+        <div id="family-card-settings">
+          <h2>Family cards</h2>
+          <label class="choice"><input id="nfc-beep" name="nfc_confirmation_beep" type="checkbox"> Family confirmation beep</label>
+          <label class="choice"><input id="card-name-prompt" name="card_name_prompt" type="checkbox"> Say the name when a card is tapped</label>
+        </div>
         <button id="save-settings" type="submit">Save settings</button>
         <p id="settings-status" class="status" role="status" aria-live="polite"></p>
       </form>
@@ -139,7 +145,7 @@
       <div class="notice"><strong>Household network access</strong><span>This dashboard has no login. Anyone on the household Wi-Fi, Button Box setup hotspot, or an authorized configured tailnet device can change settings and play queued audio.</span></div>
       <div id="advanced-health" class="status-grid"></div>
       <h2>Connections and people</h2>
-      <div class="shortcut-grid">
+      <div class="shortcut-grid" id="advanced-shortcuts">
         <a id="advanced-connections-setup" href="#setup" class="shortcut"><strong id="advanced-connections-label">Wi-Fi and WhatsApp</strong><span id="advanced-connections-copy">Reconnect, relink, or continue setup.</span></a>
         <a id="advanced-recipients-setup" href="#setup" class="shortcut"><strong>Recipients and Family cards</strong><span>Add, remove, select, Pair, reassign, or Unpair.</span></a>
       </div>
@@ -352,10 +358,10 @@
     <section class="card" id="recipient-manager-view" aria-labelledby="recipient-manager-title" hidden>
       <p class="eyebrow success">Messaging ready</p>
       <h1 id="recipient-manager-title" tabindex="-1">Recipients</h1>
-      <p class="lede">Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.</p>
+      <p class="lede" id="manager-lede">Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.</p>
       <h2 class="section-title">Allowed recipients</h2>
       <ul id="configured-recipient-list" class="recipient-list"></ul>
-      <div class="manual-recipient">
+      <div class="manual-recipient" id="manual-allow">
         <h2 class="section-title">Allow a phone number</h2>
         <form id="manual-allow-form">
           <label for="manual-allow-phone">International phone number</label>
@@ -374,11 +380,12 @@
       </div>
       <button type="button" id="manager-refresh" class="secondary">Refresh WhatsApp</button>
       <p id="manager-status" class="field-help" role="status" aria-live="polite"></p>
+      <a id="manager-back-setup" href="#setup" class="button" hidden>Back to setup to finish</a>
       <div class="notice success-notice manager-next">
         <strong>Family cards come next</strong>
         <span>Your default recipient already works without a card. To Unpair one card, present it to Button Box and choose Unpair.</span>
       </div>
-      <div class="button-row">
+      <div class="button-row" id="manager-nfc-actions">
         <button type="button" id="continue-nfc">Continue to Family cards</button>
         <button type="button" id="unpair-presented-nfc" class="secondary">Unpair</button>
         <button type="button" id="cancel-runtime-nfc" class="text-button" hidden>Cancel card pairing</button>

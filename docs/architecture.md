@@ -18,6 +18,11 @@ root access they require.
 | `messagebox-nfc.service` | Read recipient cards and maintain NFC selection state |
 | `messagebox-dash.service` | Serve the canonical household dashboard on the Wi-Fi interface |
 
+When `MSGBOX_CHANNEL_PINS` configures button channels, routing is per button
+instead: each channel is bound to one allowed chat in the contact store,
+plays only that chat's queued messages and records only to it. An unbound
+channel fails closed, and none of the routing below applies.
+
 One exact default recipient is stored with the private contact allow-list. A
 recognized NFC selection has first priority for a standalone recording. With no
 card and no claimed inbound message, the exact sender of the newest message
@@ -201,6 +206,31 @@ tag UID is held privately for at most two minutes while the caregiver chooses
 an opaque recipient token. Browser responses contain labels, kinds, default
 state, counts, and progress only. Assignment reuses the contact store's atomic
 one-tag/one-recipient transaction; tags are never written.
+
+On a channel box (`MSGBOX_CHANNEL_PINS` set), the steps after WhatsApp are
+replaced by button binding: the portal lists the same opaque recipient tokens,
+and `/recipients/bind` asks the pairing worker to approve that chat and bind it
+to one button. Completion requires every configured button to be bound, needs
+no default recipient or voice proof, and never enables NFC; both NFC units
+skip via `ExecCondition`. Setup binds in the recipient manager
+(`/recipients/bind`, `/recipients/unbind`). Completion leaves
+`messagebox-dash.service` disabled on a channel box: the no-login dashboard
+exists only during setup. Changes go through a Wi-Fi reset and setup again, or
+a developer starts the dashboard over SSH.
+
+WhatsApp logout recovery on a channel box: `messagebox-relink-watch.timer`
+runs a root check every 5 minutes in normal mode. Two clean
+`wacli auth status` answers of "not authenticated" in a row re-enter setup with
+`perform_reset(keep_wifi=True)`: saved Wi-Fi stays and setup starts after the
+hotspot step. The pairing worker then retires the dead live store (it can never
+reconnect, and pairing refuses a non-empty store) and keeps a hash of the old
+account. After pairing, chats and button bindings stay for the same account and
+are cleared for any other or unknown account.
+
+While a channel box is in setup mode (Wi-Fi reset or relink),
+`messagebox-setup-lamp.service` blinks every channel LED together. It starts
+with comitup and conflicts with `messagebox-button.service`, which owns the
+same pins in normal mode.
 
 Skip or Done creates a fixed, content-free completion request. The root gate
 validates the completed recipient state and default, enables the button, sync,

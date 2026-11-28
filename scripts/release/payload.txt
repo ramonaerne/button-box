@@ -45,7 +45,9 @@ messagebox/onboarding/mode.py
 messagebox/onboarding/nfc.py
 messagebox/onboarding/paths.py
 messagebox/onboarding/recipients.py
+messagebox/onboarding/relink_watch.py
 messagebox/onboarding/reset.py
+messagebox/onboarding/setup_lamp.py
 messagebox/onboarding/state.py
 messagebox/onboarding/static/app.js
 messagebox/onboarding/static/clipboard.js
@@ -62,6 +64,7 @@ messagebox/played_history.py
 messagebox/qrcodegen.py
 messagebox/remote_access.py
 messagebox/runtime_paths.py
+messagebox/send_limit.py
 messagebox/settings.py
 messagebox/software.py
 messagebox/sound_pack.py
@@ -77,6 +80,7 @@ scripts/commands/messagebox-init-wifi-onboarding
 scripts/dev/hardware-test.sh
 scripts/dev/onboard.sh
 scripts/dev/release-manifest.py
+scripts/dev/virtual-buttons.py
 scripts/install/audio_config.py
 scripts/install/bounded_update.py
 scripts/install/health-probe.py
@@ -673,6 +677,8 @@ systemd/messagebox-mode-reconcile.path
 systemd/messagebox-mode-reconcile.service
 systemd/messagebox-nfc.service
 systemd/messagebox-poller.service
+systemd/messagebox-relink-watch.service
+systemd/messagebox-relink-watch.timer
 systemd/messagebox-sync.service
 systemd/messagebox-update-bootstrap.service
 systemd/messagebox-update-controller.service
@@ -701,5 +707,6 @@ systemd/onboarding/messagebox-onboarding-nfc.service
 systemd/onboarding/messagebox-onboarding-voice-gate.service
 systemd/onboarding/messagebox-onboarding-voice.path
 systemd/onboarding/messagebox-onboarding-voice.target
+systemd/onboarding/messagebox-setup-lamp.service
 systemd/onboarding/messagebox-whatsapp-pairing.service
 systemd/onboarding/messagebox-wifi-reset.service

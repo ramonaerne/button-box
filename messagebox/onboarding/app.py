@@ -14,6 +14,7 @@ import unicodedata
 from pathlib import Path
 from urllib.parse import parse_qsl
 
+from messagebox.contacts import configured_channels
 from messagebox.identity import read_box_color, read_box_id
 from messagebox.software import software_footer
 from messagebox.cloud_claim import CloudClaim, CloudClaimError, CloudClaimClockError, setup_online_cue
@@ -442,6 +443,9 @@ def create_app(
     whatsapp = whatsapp_client or WhatsAppPairingClient()
     cloud = cloud_claim
     cloud_mode = os.environ.get("MSGBOX_TRANSPORT") == "cloud"
+    # Channel boxes bind one chat per button instead of a default recipient,
+    # voice proof and NFC cards.
+    channels = [] if cloud_mode else configured_channels()
 
     def claim_client():
         nonlocal cloud
@@ -595,15 +599,15 @@ def create_app(
             "default": None,
             "proof": {"received": False, "played": False, "replied": False},
         }
+        bound = set()
         if whatsapp_state["status"] == "ready":
             try:
-                recipient_setup = safe_recipient_state(
-                    whatsapp.recipient_state(), include_list=False
-                )
+                recipient_setup = safe_recipient_state(whatsapp.recipient_state())
+                bound = bound_channels(recipient_setup.pop("recipients"))
             except (OSError, PairingError):
                 recipient_setup["status"] = "error"
         nfc_setup = {"status": "idle", "mapped_count": 0}
-        if recipient_setup["status"] == "complete":
+        if recipient_setup["status"] == "complete" and not channels:
             try:
                 nfc_state = safe_nfc_state(nfc.status(), include_recipients=False)
                 nfc_setup = {
@@ -622,7 +626,11 @@ def create_app(
             "whatsapp": whatsapp_state,
             "recipient_setup": recipient_setup,
             "nfc_setup": nfc_setup,
+            "channels": [{"id": channel, "bound": channel in bound} for channel in channels],
         }
+
+    def bound_channels(recipients):
+        return {recipient["button"] for recipient in recipients if recipient["button"]}
 
     def safe_recipient_state(document, *, include_list=True):
         if not isinstance(document, dict) or set(document) != {
@@ -648,12 +656,13 @@ def create_app(
             }
             current_keys = legacy_keys | {"secondary_label", "metadata_status"}
             if not isinstance(recipient, dict) or set(recipient) not in {
-                frozenset(legacy_keys), frozenset(current_keys)
+                frozenset(legacy_keys), frozenset(current_keys), frozenset(current_keys | {"button"})
             }:
                 raise PairingError("recipient_response_invalid")
             recipient = dict(recipient)
             recipient.setdefault("secondary_label", None)
             recipient.setdefault("metadata_status", "ready")
+            recipient.setdefault("button", None)
             token = recipient["token"]
             label = recipient["label"]
             if (
@@ -678,6 +687,7 @@ def create_app(
                 )
                 or type(recipient["card_count"]) is not int
                 or recipient["card_count"] < 0
+                or recipient["button"] not in {None, *channels}
             ):
                 raise PairingError("recipient_response_invalid")
             cleaned.append(dict(recipient))
@@ -1169,6 +1179,8 @@ def create_app(
                 "/recipients/default",
                 "/recipients/rename",
                 "/recipients/defer",
+                "/recipients/bind",
+                "/recipients/unbind",
             }:
                 _require_same_origin(environ, expected_origin)
                 if selected_mode != "HOME" or store.load()["phase"] != WHATSAPP_READY:
@@ -1179,6 +1191,18 @@ def create_app(
                         if document:
                             raise RequestError("400 Bad Request", "Invalid refresh request")
                         result = whatsapp.recipient_list(refresh=True)
+                    elif path == "/recipients/unbind":
+                        if set(document) != {"channel"} or document["channel"] not in channels:
+                            raise RequestError("400 Bad Request", "Invalid button request")
+                        result = whatsapp.recipient_unbind(document["channel"])
+                    elif path == "/recipients/bind":
+                        if (
+                            set(document) != {"channel", "token"}
+                            or document["channel"] not in channels
+                            or not _RECIPIENT_TOKEN.fullmatch(document["token"])
+                        ):
+                            raise RequestError("400 Bad Request", "Invalid button request")
+                        result = whatsapp.recipient_bind(document["channel"], document["token"])
                     elif path == "/recipients/defer":
                         if document:
                             raise RequestError("400 Bad Request", "Invalid defer request")
@@ -1233,6 +1257,10 @@ def create_app(
                             "409 Conflict",
                             "Choose someone else—the linked WhatsApp account cannot be its own recipient",
                         ) from exc
+                    if str(exc) == "button_chat_taken":
+                        raise RequestError(
+                            "409 Conflict", "That chat is already on the other button"
+                        ) from exc
                     if str(exc) == "recipient name is invalid":
                         raise RequestError(
                             "400 Bad Request",
@@ -1256,6 +1284,16 @@ def create_app(
                 if selected_mode != "HOME" or store.load()["phase"] != WHATSAPP_READY:
                     raise RequestError("409 Conflict", "Family card setup requires linked WhatsApp")
                 recipient_state = safe_recipient_state(whatsapp.recipient_state())
+                if channels:
+                    if path != "/onboarding/complete":
+                        raise RequestError("404 Not Found", "Not found")
+                    if bound_channels(recipient_state["recipients"]) != set(channels):
+                        raise RequestError("409 Conflict", "Choose a chat for each button first")
+                    document = _form(environ, body_limit)
+                    if set(document) != {"intent"} or document["intent"] != "done":
+                        raise RequestError("400 Bad Request", "Invalid completion request")
+                    completion_request()
+                    return _json_response({"status": "complete"}, "202 Accepted")(start_response)
                 if recipient_state["status"] != "complete":
                     raise RequestError("409 Conflict", "Complete recipient setup first")
                 document = _form(environ, body_limit)
@@ -1322,6 +1360,8 @@ def create_app(
                 "/recipients/remove",
                 "/recipients/default",
                 "/recipients/defer",
+                "/recipients/bind",
+                "/recipients/unbind",
                 "/nfc/start",
                 "/nfc/retry",
                 "/nfc/reassign",
@@ -1399,6 +1439,8 @@ def _allowed_methods(path):
         "/recipients/remove": "POST",
         "/recipients/default": "POST",
         "/recipients/defer": "POST",
+        "/recipients/bind": "POST",
+        "/recipients/unbind": "POST",
         "/nfc/start": "POST",
         "/nfc/retry": "POST",
         "/nfc/reassign": "POST",

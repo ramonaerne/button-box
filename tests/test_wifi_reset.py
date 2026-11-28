@@ -181,6 +181,32 @@ class WifiResetTests(unittest.TestCase):
             ["systemctl", "--no-block", "start", *reset.ONBOARDING_START_UNITS],
         )
 
+    def test_relink_reset_keeps_wifi_and_starts_after_the_hotspot_step(self):
+        self.initialize_state()
+        self.configured.parent.mkdir(parents=True, exist_ok=True)
+        self.configured.write_text("configured\n", encoding="ascii")
+        runner = Runner(profiles="home:wifi\n", modes={"home": "infrastructure\n"})
+
+        reset.perform_reset(
+            runner=runner,
+            enabled_path=self.enabled,
+            configured_path=self.configured,
+            state_path=self.state,
+            state_clock=lambda: 200.0,
+            lock_path=self.lock,
+            pending_path=self.pending,
+            keep_wifi=True,
+        )
+
+        commands = [call[0] for call in runner.calls]
+        self.assertFalse(any(command[:3] == ["nmcli", "connection", "delete"] for command in commands))
+        self.assertEqual(StateStore(self.state).load()["phase"], "WIFI_CONNECTING")
+        self.assertEqual(self.enabled.read_bytes(), b"enabled\n")
+        self.assertEqual(
+            commands[-1],
+            ["systemctl", "--no-block", "start", *reset.ONBOARDING_START_UNITS],
+        )
+
     def test_reset_stops_runtime_before_committing_setup_marker(self):
         self.initialize_state()
 

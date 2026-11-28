@@ -40,7 +40,7 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 
 from messagebox.event_log import append_event
-from messagebox.contacts import ContactError, ContactStore, validate_contact
+from messagebox.contacts import ContactError, ContactStore, configured_channels, validate_contact
 from messagebox import cloud_runtime
 from messagebox.cloud_device import CloudDeviceError
 from messagebox.cloud_runtime import CloudRuntimeError
@@ -211,6 +211,7 @@ def runtime_running():
 def runtime_state():
     cloud_mode = os.environ.get("MSGBOX_TRANSPORT") == "cloud"
     contacts = {"contacts": {}}
+    bound = {}
     recipient_ready = False
     recipient_count = 0
     whatsapp_connected = False
@@ -241,8 +242,14 @@ def runtime_state():
             contacts = contacts_store().public_view()
             recipient_ready = bool(contacts.get("default_recipient"))
             recipient_count = len(contacts.get("contacts", {}))
+            bound = contacts_store().load()["channels"]
         except (ContactError, OSError):
             pass
+    channels = [] if cloud_mode else [
+        {"id": channel, "bound": channel in bound} for channel in configured_channels()
+    ]
+    if channels:
+        recipient_ready = all(channel["bound"] for channel in channels)
     wifi_connected = False
     network_name = None
     try:
@@ -267,13 +274,15 @@ def runtime_state():
                 network_name = candidate
         except (OSError, subprocess.SubprocessError):
             pass
-    first_message_ready = False
+    # Channel boxes have no voice-proof step.
+    first_message_ready = bool(channels)
     if not cloud_mode:
-        try:
-            recipient_state = RecipientSetup().public_state()
-            first_message_ready = recipient_state.get("status") == "complete"
-        except (OSError, RecipientError):
-            pass
+        if not channels:
+            try:
+                recipient_state = RecipientSetup().public_state()
+                first_message_ready = recipient_state.get("status") == "complete"
+            except (OSError, RecipientError):
+                pass
         try:
             result = subprocess.run(
                 [WACLI_BIN, "--read-only", "--json", "auth", "status"],
@@ -304,6 +313,7 @@ def runtime_state():
             ) else "optional",
         },
         "recipient_count": recipient_count,
+        "channels": channels,
         "health": {
             "wifi": "connected" if wifi_connected else "attention",
             "network_name": network_name,
@@ -1403,6 +1413,8 @@ class Handler(BaseHTTPRequestHandler):
             "/recipients/default",
             "/recipients/rename",
             "/recipients/defer",
+            "/recipients/bind",
+            "/recipients/unbind",
         }:
             payload = self._form_body()
             if payload is None:
@@ -1436,6 +1448,14 @@ class Handler(BaseHTTPRequestHandler):
                         if "name" in payload
                         else operation(phone)
                     )
+                elif url.path == "/recipients/bind":
+                    if set(payload) != {"channel", "token"} or payload["channel"] not in configured_channels():
+                        raise PairingError("recipient_request_invalid")
+                    result = engine.recipient_bind(payload["channel"], payload["token"])
+                elif url.path == "/recipients/unbind":
+                    if set(payload) != {"channel"} or payload["channel"] not in configured_channels():
+                        raise PairingError("recipient_request_invalid")
+                    result = engine.recipient_unbind(payload["channel"])
                 elif url.path == "/recipients/rename":
                     if set(payload) != {"token", "name"}:
                         raise PairingError("recipient_request_invalid")
@@ -1452,6 +1472,8 @@ class Handler(BaseHTTPRequestHandler):
                     result = operation(payload["token"])
                 return self._send(200, json.dumps(result))
             except PairingError as exc:
+                if str(exc) == "button_chat_taken":
+                    return self._send(409, json.dumps({"error": "That chat is already on the other button"}))
                 return self._send(409, json.dumps({"error": str(exc).replace("_", " ")}))
             except OSError:
                 return self._send(503, json.dumps({"error": "Recipient setup is unavailable"}))

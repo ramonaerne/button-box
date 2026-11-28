@@ -371,6 +371,27 @@ class SessionTests(unittest.TestCase):
                             self.assertEqual(io.calls, expected + [("delete", "child.wav")])
                             self.assertEqual(sum(kind == "guided_approved" for kind, _ in events), 1)
 
+    def test_channel_box_replay_sends_unless_a_press_cancels_it(self):
+        for pressed, outcome in ((False, "approved"), (True, "deleted")):
+            with self.subTest(pressed=pressed), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                source = root / "child.wav"
+                write_wav(source, seconds=2)
+                io = FakeIO([RecordingResult(str(source), 2, True)])
+                io.play_review_cancellable = lambda path, pressed=pressed: io.calls.append(
+                    ("cancellable", os.path.basename(path))) or pressed
+                store = OutboxStore(root / "outbox")
+                result = GuidedSession(io, store, lambda *a, **kw: None).run(
+                    recipient="origin@example.invalid", flow_kind="standalone",
+                    deleted_cue_path="cue-deleted.wav", review_before_send=True,
+                    cancel_during_review=True,
+                )
+                self.assertEqual(result, outcome)
+                self.assertNotIn(("wait", 10.0), io.calls)  # nothing to remember
+                self.assertEqual(len(store.jobs()), 0 if pressed else 1)
+                tail = [("delete", "child.wav"), ("ordinary", "cue-deleted.wav")] if pressed else [("delete", "child.wav")]
+                self.assertEqual(io.calls, [("record",), ("cancellable", "child.wav"), *tail])
+
     def test_review_timeout_deletes_in_both_modes_and_transports(self):
         for transport in ("wacli", "cloud"):
             for talk in ("tap", "hold"):

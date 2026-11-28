@@ -155,8 +155,13 @@ def perform_reset(
     enable_units=True,
     lock_path=MODE_TRANSITION_LOCK_PATH,
     pending_path=MODE_RECONCILE_PENDING_PATH,
+    keep_wifi=False,
 ):
-    """Perform the confirmed reset transaction and restart Wi-Fi onboarding."""
+    """Perform the confirmed reset transaction and restart Wi-Fi onboarding.
+
+    keep_wifi re-enters setup on the current network (WhatsApp relink): saved
+    Wi-Fi stays and setup starts as if the hotspot had just handed off.
+    """
 
     configured_info = Path(configured_path).lstat()
     if not stat.S_ISREG(configured_info.st_mode):
@@ -176,11 +181,16 @@ def perform_reset(
         _run(runner, ["systemctl", "daemon-reload"])
         _run(runner, ["systemctl", "stop", *ONBOARDING_UNITS])
         _run(runner, ["rm", "-f", "--", "/var/lib/comitup/dhcpleaseinfo"])
-        StateStore(state_path, clock=state_clock, owner=state_owner).reset(recreate=True)
+        store = StateStore(state_path, clock=state_clock, owner=state_owner)
+        store.reset(recreate=True)
         Path(completion_request_path).unlink(missing_ok=True)
 
-        for uuid in list_infrastructure_wifi_profiles(runner):
-            _run(runner, ["nmcli", "connection", "delete", "uuid", uuid])
+        if keep_wifi:
+            # The home portal then proves connectivity and moves on to WhatsApp.
+            store.begin_connect("current network")
+        else:
+            for uuid in list_infrastructure_wifi_profiles(runner):
+                _run(runner, ["nmcli", "connection", "delete", "uuid", uuid])
 
         _run(runner, ["nmcli", "radio", "wifi", "on"])
         # During the boot-button service this is queued until that service exits.

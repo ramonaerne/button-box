@@ -55,6 +55,13 @@ function acceptanceControl(tag, ...caseIds) {
   return control;
 }
 
+// shortcut: names fixed to this fork's two buttons (channel 1 GPIO25, channel 2 GPIO8).
+const buttonNames = { 1: "Green button", 2: "Red button" };
+
+function channelBox(state = currentState) {
+  return (state?.channels || []).length > 0;
+}
+
 function isCloud(state = currentState) {
   return state?.transport === "cloud";
 }
@@ -294,8 +301,15 @@ function applyWhatsAppState(state, { manage = false } = {}) {
     document.getElementById("eligible-count").textContent = count === 1
       ? "1 recent group or chat is ready for the next setup step."
       : `${count} recent groups or chats are ready for the next setup step.`;
+    document.getElementById("continue-recipients").textContent = channelBox(state)
+      ? "Choose chats for the buttons"
+      : "Choose a recipient";
+    // At runtime channel boxes assign buttons in Manage chats and buttons.
+    document.getElementById("continue-recipients").hidden = channelBox(state) && state.mode === "RUNTIME";
     if (manage) {
       showView("ready");
+    } else if (channelBox(state)) {
+      location.hash = "recipients";
     } else {
       applyRecipientState(state.recipient_setup, state.nfc_setup);
     }
@@ -357,9 +371,10 @@ function recipientRow(recipient, actions = []) {
     ? " · name unavailable — refresh WhatsApp to retry"
     : "";
   meta.className = "recipient-secondary";
-  meta.textContent = recipient.is_default
-    ? `${recipient.kind} · default${identity}${metadata}${tagCopy}`
-    : `${recipient.kind}${identity}${metadata}${tagCopy}`;
+  const role = channelBox()
+    ? (recipient.button ? ` · ${buttonNames[recipient.button]}` : "")
+    : (recipient.is_default ? " · default" : "");
+  meta.textContent = `${recipient.kind}${role}${identity}${metadata}${tagCopy}`;
   copy.append(name, meta);
   row.append(copy);
   if (actions.length) {
@@ -473,9 +488,30 @@ function renderRecipientManager(data) {
   document.getElementById("continue-nfc").textContent = currentState?.mode === "RUNTIME"
     ? "Pair a card"
     : "Continue to Family cards";
+  const buttons = channelBox();
+  // Channel boxes route by button: no default recipient and no Family cards.
+  document.querySelector("#recipient-manager-view .manager-next").hidden = buttons;
+  document.getElementById("manager-nfc-actions").hidden = buttons;
+  // Choosing a button approves the chat, so the separate Allow steps are not needed.
+  document.getElementById("manual-allow").hidden = buttons;
+  // During setup the remaining step is Finish setup on the Setup page.
+  document.getElementById("manager-back-setup").hidden = !buttons || currentState?.mode === "RUNTIME";
+  document.getElementById("manager-lede").textContent = buttons
+    ? "Put an allowed chat on the green or red button. Tap plays its messages; hold records a reply to it."
+    : "Choose which allowed person or group receives messages when no Family card is used. Family cards can be paired later.";
   const configured = data.recipients.filter((recipient) => recipient.configured);
   const available = data.recipients.filter((recipient) => recipient.available && !recipient.configured);
   document.getElementById("configured-recipient-list").replaceChildren(...configured.map((recipient) => {
+    if (buttons) {
+      const actions = recipient.is_default ? [] : [{ action: "remove", label: "Remove" }];
+      if (recipient.kind === "person") actions.unshift({
+        action: "rename",
+        label: recipient.label === recipient.secondary_label ? "Add name" : "Rename",
+      });
+      const row = recipientRow(recipient, actions);
+      row.append(buttonPicker(recipient));
+      return row;
+    }
     const actions = currentState?.mode === "RUNTIME"
       ? [{ action: "pair-card", label: "Pair card" }]
       : [];
@@ -490,10 +526,12 @@ function renderRecipientManager(data) {
     return recipientRow(recipient, actions);
   }));
   document.getElementById("available-recipient-list").replaceChildren(
-    ...available.map((recipient) => recipientRow(
-      recipient,
-      [{ action: "add", label: "Allow" }],
-    )),
+    ...available.map((recipient) => {
+      if (!buttons) return recipientRow(recipient, [{ action: "add", label: "Allow" }]);
+      const row = recipientRow(recipient);
+      row.append(buttonPicker(recipient));
+      return row;
+    }),
   );
   document.getElementById("manager-empty").hidden = available.length !== 0;
 }
@@ -519,6 +557,36 @@ async function loadRecipients({ refresh = false, manager = false } = {}) {
   } catch (error) {
     status.textContent = error.message;
     throw error;
+  }
+}
+
+function buttonPicker(recipient) {
+  const label = document.createElement("label");
+  label.className = "recipient-button";
+  label.textContent = "Button ";
+  const select = document.createElement("select");
+  select.append(new Option("No button", "", false, !recipient.button), ...(currentState?.channels || []).map(
+    (channel) => new Option(buttonNames[channel.id] || `Button ${channel.id}`, channel.id, false, recipient.button === channel.id),
+  ));
+  select.addEventListener("change", () => moveToButton(recipient, select));
+  label.append(select);
+  return label;
+}
+
+async function moveToButton(recipient, select) {
+  select.disabled = true;
+  const status = document.getElementById("manager-status");
+  try {
+    // A chat owns one button: free its current one before binding another.
+    let data = recipient.button
+      ? await formRequest("/recipients/unbind", { channel: recipient.button })
+      : null;
+    if (select.value) data = await formRequest("/recipients/bind", { channel: select.value, token: recipient.token });
+    renderRecipientManager(data);
+    status.textContent = "Saved.";
+  } catch (error) {
+    await loadRecipients({ manager: true });
+    status.textContent = error.message;
   }
 }
 
@@ -911,8 +979,11 @@ function setupProgress(state) {
   return {
     wifi: wifiComplete ? "complete" : "attention",
     whatsapp: whatsappComplete ? "complete" : "attention",
-    recipient: recipient.default ? "complete" : "attention",
-    first_message: proof.received && proof.played && proof.replied ? "complete" : "attention",
+    recipient: (channelBox(state) ? state.channels.every((channel) => channel.bound) : recipient.default)
+      ? "complete" : "attention",
+    // Channel boxes have no voice-proof step.
+    first_message: channelBox(state) || (proof.received && proof.played && proof.replied)
+      ? "complete" : "attention",
     nfc: (state.nfc_setup?.mapped_count || 0) > 0 ? "complete" : "optional",
   };
 }
@@ -924,11 +995,22 @@ function renderSetup(state) {
   document.getElementById("required-tasks").replaceChildren(
     taskStatus("Connect Wi-Fi", progress.wifi, activeSetup ? "#continue" : "#advanced"),
     taskStatus(cloud ? "Press the button and name your box" : "Link WhatsApp", progress.whatsapp, cloud ? cloudDashboard : "#whatsapp"),
-    taskStatus("Choose a default recipient", progress.recipient, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
-    taskStatus("Receive, play, record, and send a test message", progress.first_message, activeSetup ? "#continue" : "#activity"),
+    // After setup, channel boxes assign buttons in Manage chats and buttons.
+    ...(channelBox(state)
+      ? (activeSetup ? [taskStatus("Choose chats for the green and red buttons", progress.recipient, "#recipients")] : [])
+      : [taskStatus("Choose a default recipient", progress.recipient, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced")]),
+    ...(channelBox(state) ? [] : [
+      taskStatus("Receive, play, record, and send a test message", progress.first_message, activeSetup ? "#continue" : "#activity"),
+    ]),
   );
+  // Channel boxes have no NFC step to finish from; finish here once the required tasks are done.
+  const finish = document.getElementById("finish-buttons");
+  finish.hidden = !(activeSetup && channelBox(state));
+  finish.disabled = ![progress.wifi, progress.whatsapp, progress.recipient].every((status) => status === "complete");
   document.getElementById("optional-tasks").replaceChildren(
-    taskStatus("Pair Family cards", progress.nfc, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
+    ...(channelBox(state) ? [] : [
+      taskStatus("Pair Family cards", progress.nfc, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
+    ]),
     taskStatus("Personalize button, sounds, and quiet hours", "optional", cloud ? cloudDashboard : "#settings"),
   );
 }
@@ -991,6 +1073,7 @@ function populateSettings(payload) {
   document.getElementById("review-before-send").checked = value.review_before_send;
   document.querySelector(`[name="after_listening"][value="${value.after_listening}"]`).checked = true;
   document.getElementById("max-recording").value = String(value.max_recording_seconds);
+  document.getElementById("sends-per-reply").value = String(value.sends_per_reply ?? 0);
   document.getElementById("ringtone").value = value.ringtone_id;
   document.getElementById("master-volume").value = String(value.master_volume_percent);
   document.getElementById("volume-output").value = `${value.master_volume_percent}%`;
@@ -1000,6 +1083,7 @@ function populateSettings(payload) {
   document.getElementById("quiet-end").value = value.quiet_hours.end;
   document.getElementById("timezone").value = value.timezone;
   document.getElementById("nfc-beep").checked = value.nfc_confirmation_beep;
+  document.getElementById("family-card-settings").hidden = channelBox();
   document.getElementById("card-name-prompt").checked = value.card_name_prompt !== false;
   document.getElementById("swoosh-sound").checked = value.swoosh_sound_enabled;
   document.getElementById("settings-attention").hidden = !payload.attention;
@@ -1027,6 +1111,7 @@ function settingsCandidate() {
     review_before_send: document.getElementById("review-before-send").checked,
     after_listening: document.querySelector('[name="after_listening"]:checked').value,
     max_recording_seconds: Number(document.getElementById("max-recording").value),
+    sends_per_reply: Number(document.getElementById("sends-per-reply").value),
     ringtone_id: document.getElementById("ringtone").value,
     master_volume_percent: Number(document.getElementById("master-volume").value),
     arrival_signal: document.getElementById("arrival-signal").value,
@@ -1154,6 +1239,9 @@ function renderAdvancedManagement() {
     document.getElementById(id).hidden = cloud;
   }
   document.getElementById("advanced-cloud-management").hidden = !cloud;
+  // On channel boxes these tiles only lead back to Setup; the buttons below manage both.
+  document.getElementById("advanced-shortcuts").hidden = channelBox();
+  document.getElementById("manage-recipients").textContent = channelBox() ? "Manage chats and buttons" : "Manage recipients";
   document.getElementById("advanced-connections-label").textContent = cloud ? "WhatsApp connection" : "Wi-Fi and WhatsApp";
   document.getElementById("advanced-connections-copy").textContent = cloud
     ? "Manage your connection in Button Box Cloud."
@@ -1489,8 +1577,9 @@ document.getElementById("keep-account").addEventListener("click", () => {
 });
 document.getElementById("unlink-form").addEventListener("submit", unlinkWhatsApp);
 document.getElementById("continue-recipients").addEventListener("click", () => {
-  location.hash = "recipient-picker";
+  location.hash = channelBox() ? "recipients" : "recipient-picker";
 });
+document.getElementById("finish-buttons").addEventListener("click", () => completeOnboarding("done"));
 document.getElementById("refresh-recipients").addEventListener("click", () => loadRecipients({ refresh: true }));
 document.getElementById("defer-recipients").addEventListener("click", deferRecipients);
 document.getElementById("manual-default-form").addEventListener("submit", (event) => {

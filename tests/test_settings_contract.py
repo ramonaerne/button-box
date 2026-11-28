@@ -61,7 +61,13 @@ class SettingsContractTests(unittest.TestCase):
         self.assertIs(step2['capabilities']['guided_setup_v1'], True)
         self.assertIn('setup_greeting', step2['command_kinds'])
         current = json.loads(self.export().stdout)
-        self.assertEqual({**step2, 'build': current['build']}, current)
+        # Step 2 differs from the current contract only by sends_per_reply.
+        latest = json.loads((directory / 'sends-per-reply-4a9bacf.json').read_text())
+        self.assertEqual(latest['build'], '4a9bacf')
+        self.assertEqual({**latest, 'build': current['build']}, current)
+        step2_keys = {**latest['keys']}
+        del step2_keys['sends_per_reply']
+        self.assertEqual(step2['keys'], step2_keys)
         self.assertFalse((directory / 'voice-onboarding-fleet.json').exists())
 
     def alternate_checkout(self, directory):

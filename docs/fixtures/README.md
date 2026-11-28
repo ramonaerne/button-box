@@ -25,3 +25,7 @@ current heartbeat, including removal of a capability after rollback.
 The integrated fresh-box candidate contract is `rita-candidate-484b1dd.json`.
 It describes source commit `484b1dd`. The later documentation commit does not
 change the runtime contract. This file has not been installed in the Cloud repo.
+
+`sends-per-reply-4a9bacf.json` adds the `sends_per_reply` settings key (D15 in
+`TASKS.md`) and describes source commit `4a9bacf`. Copy it to the Cloud
+repository's `tests/fixtures/box-builds/`; it has not been installed there.

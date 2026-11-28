@@ -55,6 +55,7 @@ rsync -azR \
   "$REPO_DIR/./scripts/commands/messagebox-init-wifi-onboarding" \
   "$REPO_DIR/./scripts/dev/onboard.sh" \
   "$REPO_DIR/./scripts/dev/hardware-test.sh" \
+  "$REPO_DIR/./scripts/dev/virtual-buttons.py" \
   "$REPO_DIR/./scripts/messageboxctl" \
   "$REPO_DIR/./scripts/setup.sh" \
   "$REPO_DIR/./sounds/" \
@@ -85,6 +86,7 @@ rsync -azR \
   "$REPO_DIR/./messagebox/listened_receipts.py" \
   "$REPO_DIR/./messagebox/message_age.py" \
   "$REPO_DIR/./messagebox/played_history.py" \
+  "$REPO_DIR/./messagebox/send_limit.py" \
   "$REPO_DIR/./messagebox/nfc.py" \
   "$REPO_DIR/./messagebox/nfc_state.py" \
   "$REPO_DIR/./messagebox/runtime_paths.py" \
@@ -109,7 +111,9 @@ rsync -azR \
   "$REPO_DIR/./messagebox/onboarding/nfc.py" \
   "$REPO_DIR/./messagebox/onboarding/paths.py" \
   "$REPO_DIR/./messagebox/onboarding/recipients.py" \
+  "$REPO_DIR/./messagebox/onboarding/relink_watch.py" \
   "$REPO_DIR/./messagebox/onboarding/reset.py" \
+  "$REPO_DIR/./messagebox/onboarding/setup_lamp.py" \
   "$REPO_DIR/./messagebox/onboarding/state.py" \
   "$REPO_DIR/./messagebox/onboarding/voice_gate.py" \
   "$REPO_DIR/./messagebox/onboarding/whatsapp.py" \

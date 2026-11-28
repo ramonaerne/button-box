@@ -192,6 +192,25 @@ class FakeWhatsApp:
         self.calls.append(("recipient_rename", token, name))
         return self.recipient_state()
 
+    def recipient_unbind(self, channel):
+        self.calls.append(("recipient_unbind", channel))
+        for recipient in self.recipient["recipients"]:
+            if recipient.get("button") == channel:
+                recipient["button"] = None
+        return self.recipient_state()
+
+    def recipient_bind(self, channel, token):
+        self.calls.append(("recipient_bind", channel, token))
+        for recipient in self.recipient["recipients"]:
+            if recipient["token"] == token:
+                if recipient.get("button") not in {None, channel}:
+                    raise PairingError("button_chat_taken")
+                for other in self.recipient["recipients"]:
+                    if other.get("button") == channel:
+                        other["button"] = None
+                recipient.update(button=channel, configured=True)
+        return self.recipient_state()
+
 
 class FakeNfc:
     def __init__(self):
@@ -805,10 +824,12 @@ class OnboardingAPITests(unittest.TestCase):
             "GET", "/api/state", headers={"Cookie": "messagebox_session=obsolete"}
         )
         self.assertEqual(response["status"], "200 OK")
+        body = json.loads(response["body"])
         self.assertEqual(
-            set(json.loads(response["body"])),
-            {"mode", "phase", "safe_error", "whatsapp", "recipient_setup", "nfc_setup", "box_id"},
+            set(body),
+            {"mode", "phase", "safe_error", "whatsapp", "recipient_setup", "nfc_setup", "box_id", "channels"},
         )
+        self.assertEqual(body["channels"], [])  # single-button box
         self.assertIsNone(header(response, "Set-Cookie"))
 
     def test_same_origin_browser_mutation_is_allowed(self):
@@ -1358,6 +1379,74 @@ class OnboardingAPITests(unittest.TestCase):
         )
         self.assertEqual(response["status"], "202 Accepted")
         self.assertEqual(completions, [True])
+
+    def test_channel_box_binds_buttons_and_finishes_without_nfc(self):
+        whatsapp = FakeWhatsApp(
+            {
+                "status": "ready",
+                "pairing_code": None,
+                "phone_hint": "Linked account",
+                "eligible_count": 2,
+                "safe_error": None,
+                "attempt": 1,
+            }
+        )
+        green, red = "recipient-token-0001", "recipient-token-0002"
+        whatsapp.recipient["recipients"] = [
+            {
+                "token": token,
+                "label": label,
+                "kind": "group",
+                "configured": False,
+                "is_default": False,
+                "available": True,
+                "card_count": 0,
+                "secondary_label": None,
+                "metadata_status": "ready",
+                "button": None,
+            }
+            for token, label in ((green, "Family"), (red, "Friends"))
+        ]
+        nfc = FakeNfc()
+        completions = []
+        with patch.dict("os.environ", {"MSGBOX_CHANNEL_PINS": "25:24,8:23"}):
+            client, _, _ = self.home_pairing_client(
+                whatsapp, nfc, lambda: completions.append(True)
+            )
+
+        state = json.loads(client.request("GET", "/api/state")["body"])
+        self.assertEqual(state["channels"], [{"id": "1", "bound": False}, {"id": "2", "bound": False}])
+        self.assertEqual(
+            client.form("POST", "/onboarding/complete", {"intent": "done"})["status"],
+            "409 Conflict",
+        )
+        self.assertEqual(
+            client.form("POST", "/recipients/bind", {"channel": "3", "token": green})["status"],
+            "400 Bad Request",
+        )
+        self.assertEqual(
+            client.form("POST", "/recipients/bind", {"channel": "1", "token": green})["status"],
+            "200 OK",
+        )
+        taken = client.form("POST", "/recipients/bind", {"channel": "2", "token": green})
+        self.assertEqual(taken["status"], "409 Conflict")
+        self.assertIn(b"already on the other button", taken["body"])
+        self.assertEqual(client.form("POST", "/nfc/start", {})["status"], "404 Not Found")
+        self.assertEqual(client.form("POST", "/recipients/unbind", {"channel": "5"})["status"], "400 Bad Request")
+        client.form("POST", "/recipients/bind", {"channel": "2", "token": red})
+        client.form("POST", "/recipients/unbind", {"channel": "2"})
+        self.assertEqual(
+            client.form("POST", "/onboarding/complete", {"intent": "done"})["status"],
+            "409 Conflict",
+        )
+        client.form("POST", "/recipients/bind", {"channel": "2", "token": red})
+
+        state = json.loads(client.request("GET", "/api/state")["body"])
+        self.assertEqual(state["channels"], [{"id": "1", "bound": True}, {"id": "2", "bound": True}])
+        completed = client.form("POST", "/onboarding/complete", {"intent": "done"})
+        self.assertEqual(completed["status"], "202 Accepted")
+        self.assertEqual(completions, [True])
+        self.assertEqual(nfc.calls, [])
 
     def test_home_captive_probes_report_success(self):
         application = create_app(

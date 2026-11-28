@@ -3,7 +3,7 @@
 ## Print files
 
 - 🇪🇺 **European — EU S8 (EL001 speaker):** [base-print.stl](eu-el001/exports/base-print.stl) · [lid-print.stl](eu-el001/exports/lid-print.stl) — parts list: [EU BOM](eu-el001/BOM.md) · [all exports](eu-el001/exports) · [details, STEP source and rebuild](eu-el001/README.md)
-- 🇺🇸 **Original / US — two-part prototype:** [Top](button-box-enclosure-top.stl) · [Bottom](button-box-enclosure-bottom.stl) — parts list: [hardware BOM](../README.md#bom)
+- 🇺🇸 **Original / US — two-part prototype:** [Top](button-box-enclosure-top.stl) · [Bottom](button-box-enclosure-bottom.stl) — parts list: [hardware BOM](../README-upstream.md#bom)
 
 The meshes share a 192 mm by 120 mm footprint when interpreted in millimeters.
 The top is approximately 74.5 mm tall and the bottom is approximately 20.5 mm

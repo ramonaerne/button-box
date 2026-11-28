@@ -7,13 +7,13 @@ Automated tests and repository review do not prove a physical Pi, phone, Wi-Fi,
 GPIO, NFC, audio, or WhatsApp journey. Please say exactly what you tested when
 reporting success or opening a pull request.
 
-Each detailed step in the [build guide](README.md#build-a-button-box) ends with
+Each detailed step in the [build guide](README-upstream.md#build-a-button-box) ends with
 a **Done when** checkpoint. If the observed result differs, stop there and
 troubleshoot instead of pushing ahead.
 
 ## Parts and enclosure
 
-This is our current [reference build](README.md#parts-with-purchase-links).
+This is our current [reference build](README-upstream.md#parts-with-purchase-links).
 Other USB speakers and microphones, and other GPIO-connected buttons, may work
 electrically and with the software, but each substitution is unvalidated. The
 printable enclosure was designed for the parts in this list. If you change the
@@ -37,7 +37,7 @@ The default public GPIO configuration is:
 | PN532 data | I²C |
 
 > [!CAUTION]
-> A [community wiring diagram](hardware/README.md#community-wiring-diagram) is available,
+> A [community wiring diagram](hardware/README-upstream.md#community-wiring-diagram) is available,
 > with different PN532 reset/request pins and configuration notes. It has not
 > been physically validated. The pin list above remains the software default. Confirm button voltage, LED current limiting, connector sizes, Pi
 > pin numbering, and PN532 I²C mode before applying power. Never connect or

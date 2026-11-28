@@ -20,6 +20,8 @@ EnvironmentFile=/run/messagebox-audio/audio.env
 UMask=0077
 RuntimeDirectory=messagebox-onboarding-nfc
 RuntimeDirectoryMode=0750
+# Channel boxes have no NFC reader; skip cleanly instead of failing.
+ExecCondition=+/bin/sh -c '! grep -Eq "^MSGBOX_CHANNEL_PINS=.+" /etc/messagebox/env'
 ExecStart=/opt/messagebox/venv-nfc/bin/python -u -m messagebox.onboarding.nfc --serve
 Restart=on-failure
 RestartSec=3

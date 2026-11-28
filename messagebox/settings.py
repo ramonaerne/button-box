@@ -22,6 +22,8 @@ TALK_MODES = frozenset({"tap", "hold"})
 RECORDING_MODES = frozenset({"tap_review", "hold_release"})
 AFTER_LISTENING = frozenset({"play_only", "invite_reply"})
 MAX_RECORDING_SECONDS = frozenset({30, 60, 120})
+# Sends allowed per button channel before a newer reply is played; 0 is off.
+SENDS_PER_REPLY = frozenset({0, 1, 2, 3, 5})
 RINGTONES = {
     "hello_piano": "hello_piano.wav",
     "sunshine": "sunshine.wav",
@@ -67,10 +69,11 @@ _ROOT_KEYS = {
     "card_name_prompt",
     "swoosh_sound_enabled",
     "announce_messages_voice",
+    "sends_per_reply",
 }
 _REQUIRED_ROOT_KEYS = _ROOT_KEYS - set(QUIET_DEFAULTS) - {"say_reactions", "swoosh_sound_enabled", "voice_pack", "card_name_prompt",
                                    "recording_mode", "talk_mode", "review_before_send",
-                                   "announce_messages_voice"}
+                                   "announce_messages_voice", "sends_per_reply"}
 
 
 class SettingsError(ValueError):
@@ -234,6 +237,7 @@ def defaults(environ=None):
         "say_reactions": True,
         "voice_pack": "buttonbox",
         "announce_messages_voice": False,
+        "sends_per_reply": 0,
     }
 
 
@@ -272,7 +276,7 @@ def validate(document, *, default_voice_pack="buttonbox"):
     if _REQUIRED_ROOT_KEYS <= set(document) <= _ROOT_KEYS:
         # Callers that accept a Cloud document must supply its retained voice.
         document = normalize_quiet_settings({"say_reactions": True, "swoosh_sound_enabled": True, "voice_pack": default_voice_pack, "card_name_prompt": True,
-                                               "announce_messages_voice": False, **document})
+                                               "announce_messages_voice": False, "sends_per_reply": 0, **document})
         document["voice_pack"] = normalize_voice_pack(document["voice_pack"])
     if set(document) != _ROOT_KEYS:
         raise SettingsError("settings have an invalid schema")
@@ -324,6 +328,8 @@ def validate(document, *, default_voice_pack="buttonbox"):
         raise SettingsError("swoosh sound value is invalid")
     if type(document["announce_messages_voice"]) is not bool:
         raise SettingsError("message voice intro value is invalid")
+    if type(document["sends_per_reply"]) is not int or document["sends_per_reply"] not in SENDS_PER_REPLY:
+        raise SettingsError("sends per reply value is invalid")
     return copy.deepcopy(document)
 
 
@@ -437,7 +443,7 @@ class SettingsStore:
             raise SettingsError("settings request must be an object")
         retain_voice = self.environ.get("MSGBOX_TRANSPORT") == "cloud" and "voice_pack" not in candidate
         candidate = {**QUIET_DEFAULTS, "voice_pack": "buttonbox", "card_name_prompt": True, "say_reactions": True,
-                     "announce_messages_voice": False, **candidate}
+                     "announce_messages_voice": False, "sends_per_reply": 0, **candidate}
         value_keys = _ROOT_KEYS - {"version", "revision"}
         candidate = normalize_recording_settings(
             {key: value for key, value in candidate.items() if key in _ROOT_KEYS})

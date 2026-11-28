@@ -121,6 +121,27 @@ override it within the selection window (30 seconds by default). A missing
 default or an unknown or invalid card state blocks rather than guessing or
 rerouting. Replies to incoming messages always use the exact originating chat.
 
+### Button channels
+
+A box with several buttons sets `MSGBOX_CHANNEL_PINS` (for example
+`17:26,27:22`) in `/etc/messagebox/env`. Each button and its LED form one
+channel bound to exactly one contact:
+
+```sh
+messagebox-contact add "Grandma" 15551234567@s.whatsapp.net --no-card
+messagebox-contact bind 1 15551234567@s.whatsapp.net
+messagebox-contact unbind 1
+```
+
+A tap plays the oldest waiting message from that channel's chat, and a hold
+records a message to it. The LED is lit while that chat has messages waiting.
+An unbound button plays the fail beep and never falls back to another chat.
+A chat can be bound to only one button. Removing the contact unbinds it.
+NFC, recent-sender and default routing are not used. Channels always use
+hold to talk (honouring the review-before-send setting); tap-to-talk sessions
+do not support channels yet. Channels require the wacli transport: the button
+service refuses to start with channels in cloud mode.
+
 ## Service control
 
 `messageboxctl` wraps common systemd and journal operations. Run
@@ -154,6 +175,35 @@ normal button service first so the test has exclusive GPIO/audio access:
 ```sh
 sudo -u messagebox -H /opt/messagebox/dev/hardware-test.sh
 ```
+
+### Virtual buttons and microphone
+
+To exercise the real runtime before buttons or a microphone are fitted, stop
+the button service and run the developer runner in its place. It uses gpiozero
+mock pins driven from the terminal (`t 1` taps button 1, `h 1 5` holds it for
+5 s, `q` quits) and prints LED changes. Recording always uses a fake
+microphone: a tone, or a WAV looped with `--mic-file PATH`. Terminal input
+never opens the real microphone (see `docs/mic-access-audit.md`). **Recordings
+are really sent** to the bound chat. With review-before-send enabled (the
+default), tap the same button again after the playback to approve sending.
+
+```sh
+sudo systemctl stop messagebox-button.service
+sudo -u messagebox -H python3 /opt/messagebox/dev/virtual-buttons.py
+```
+
+To try code changes on a provisioned test box without a full provision, run
+`./scripts/dev/push-code.sh user@host` from your computer. It replaces only
+already-installed runtime Python files and the runner, then restarts the
+running button, poller and dashboard services. Anything else (new files,
+units, sounds, packages, config) still needs `scripts/provision.sh`.
+
+Incoming messages are polled only from other accounts: messages sent from the
+box's own WhatsApp account (including its "message yourself" chat) are
+ignored, so test receiving from a second WhatsApp account.
+
+Without a speaker, prefix the runner with `env MSGBOX_SPK_DEV=null`. Restart
+the service afterwards with `sudo systemctl start messagebox-button.service`.
 
 The dashboard has no login. Prefer binding `MSGBOX_DASH_BIND` to the Pi's
 Tailscale IPv4 address. Binding to `0.0.0.0` exposes it on every connected

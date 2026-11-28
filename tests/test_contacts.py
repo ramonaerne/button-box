@@ -82,9 +82,10 @@ class ContactStoreTests(unittest.TestCase):
         self.assertEqual(
             self.store.load(),
             {
-                "version": 2,
+                "version": 3,
                 "revision": 0,
                 "default_recipient": None,
+                "channels": {},
                 "contacts": {},
                 "listeners": {},
             },
@@ -308,6 +309,69 @@ class ContactStoreTests(unittest.TestCase):
         self.assertIn(outcome, {("selected", "protected"), ("missing", True)})
         document = self.store.load()
         self.assertIn(document["default_recipient"], document["contacts"])
+
+    def test_v2_store_upgrades_with_no_channels_and_bindings_are_validated(self):
+        self.path.parent.mkdir()
+        self.path.write_text(
+            json.dumps(
+                {
+                    "version": 2,
+                    "revision": 4,
+                    "default_recipient": None,
+                    "contacts": {},
+                    "listeners": {},
+                }
+            ),
+            encoding="utf-8",
+        )
+        self.assertEqual(self.store.load()["channels"], {})
+        self.store.add_contact(PERSON, "Grandma")
+        self.assertEqual(json.loads(self.path.read_text())["version"], 3)
+
+        valid = self.store.load()
+        for channels in ({"1": GROUP}, {"0": PERSON}, {"01": PERSON}, {"1": PERSON, "2": PERSON}):
+            with self.subTest(channels=channels):
+                document = {**valid, "channels": channels}
+                self.path.write_text(json.dumps(document), encoding="utf-8")
+                with self.assertRaises(ContactError):
+                    self.store.load()
+
+    def test_channels_bind_only_approved_chats_once_and_never_fall_back(self):
+        self.store.add_contact(PERSON, "Grandma")
+        self.store.add_contact(GROUP, "Family")
+        with self.assertRaises(ContactError):
+            self.store.bind_channel(1, LEGACY_GROUP)
+        for channel in (0, 9, "x"):
+            with self.assertRaises(ContactError):
+                self.store.bind_channel(channel, PERSON)
+
+        self.store.bind_channel(1, PERSON)
+        self.store.bind_channel("2", GROUP)
+        with self.assertRaises(ContactError):
+            self.store.bind_channel(2, PERSON)
+        self.assertEqual(self.store.channel_chat(1), PERSON)
+        self.assertEqual(self.store.channel_chat(2), GROUP)
+
+        self.store.remove_contact(PERSON)
+        self.assertIsNone(self.store.channel_chat(1))
+        self.assertEqual(self.store.channel_chat(2), GROUP)
+        self.assertTrue(self.store.unbind_channel(2))
+        self.assertFalse(self.store.unbind_channel(2))
+        self.store.bind_channel(1, GROUP)
+        self.store.clear_for_whatsapp_relink()
+        self.assertEqual(self.store.load()["channels"], {})
+
+    def test_whole_list_contact_sync_unbinds_instead_of_corrupting(self):
+        self.store.add_contact(PERSON, "Grandma")
+        self.store.bind_channel(1, PERSON)
+
+        def replace_all(document):
+            document["contacts"] = {}
+            document["default_recipient"] = None
+            return True, None
+
+        self.store._mutate(replace_all)
+        self.assertEqual(self.store.load()["channels"], {})
 
     def test_explicit_default_can_be_set_once_for_existing_contacts(self):
         self.store.add_contact(PERSON, "Grandma", receive_after=0)
