@@ -14,7 +14,10 @@ Type=simple
 User=messagebox
 Group=messagebox
 SupplementaryGroups=gpio
-WorkingDirectory=/opt/messagebox
+# lgpio writes helper files to the working directory; give it a private writable one.
+RuntimeDirectory=messagebox-setup-lamp
+RuntimeDirectoryMode=0700
+WorkingDirectory=/run/messagebox-setup-lamp
 EnvironmentFile=/etc/messagebox/env
 Environment=PYTHONPATH=/opt/messagebox
 Environment=GPIOZERO_PIN_FACTORY=lgpio
