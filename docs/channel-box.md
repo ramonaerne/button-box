@@ -19,7 +19,7 @@ boxes keep the upstream behaviour.
 | Power supply | At least 2.5 A. |
 
 Parts, photos and the optional adapter (and how to do without it) are in
-[`hardware/README-channel-box.md`](../hardware/README-channel-box.md). Wiring
+[`hardware/README.md`](../hardware/README.md). Wiring
 used here, from [`hardware/schematic-2-channel.svg`](../hardware/schematic-2-channel.svg):
 
 | Channel | Button | LED | Notes |

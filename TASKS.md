@@ -166,7 +166,7 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       set by hand (`MSGBOX_SPEAKER_CONTROL=Speaker`). — *AC:* the mixer control names for
       the dongle are checked and set by setup (or documented in env). Volume
       changes take effect. Power and wiring notes (speaker on the 5 V rail,
-      MOSFET LEDs, PSU) are in `hardware/README.md`.
+      MOSFET LEDs, PSU) are in `hardware/README.md` (the fork's hardware README).
 - [ ] **T9 Messenger seam** — *AC:* send/receive/download calls go through
       one module boundary that tests can inject. No Signal code.
 - [ ] **T10 Tests** — `make check` passes. The contract tests cover the

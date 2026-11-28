@@ -37,7 +37,7 @@ the upstream behaviour.
 | Document | Contents |
 | --- | --- |
 | [docs/channel-box.md](docs/channel-box.md) | Configuration, daily use, reset, logout recovery, the required label, shipping checklist |
-| [hardware/README-channel-box.md](hardware/README-channel-box.md) | Parts, photos, adapter schematic (optional), pins, power |
+| [hardware/README.md](hardware/README.md) | Parts, photos, adapter schematic (optional), pins, power |
 | [TASKS.md](TASKS.md) | Decisions, task status and known gaps |
 | [MODIFICATION.md](MODIFICATION.md) | The original goals for this fork |
 | [README-upstream.md](README-upstream.md) | Upstream build, install and project information |

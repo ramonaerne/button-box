@@ -37,7 +37,7 @@ The default public GPIO configuration is:
 | PN532 data | I²C |
 
 > [!CAUTION]
-> A [community wiring diagram](hardware/README.md#community-wiring-diagram) is available,
+> A [community wiring diagram](hardware/README-upstream.md#community-wiring-diagram) is available,
 > with different PN532 reset/request pins and configuration notes. It has not
 > been physically validated. The pin list above remains the software default. Confirm button voltage, LED current limiting, connector sizes, Pi
 > pin numbering, and PN532 I²C mode before applying power. Never connect or
