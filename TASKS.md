@@ -224,10 +224,17 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       plus: both channels send/receive to the right chat, the turn rule,
       rebind confirmation, the microphone open only while recording, and a
       reboot. After a fresh boot, the **first** hold on each button records
-      and sends (known gap above); recheck wiring if it fails. Then a Wi-Fi reset before shipping.
+      and sends (known gap above); recheck wiring if it fails. Check `sudo grep -c 'dport 22' /etc/messagebox-onboarding/firewall.nft`
+      prints 0 (no dev SSH-on-hotspot rule). Then a Wi-Fi reset before shipping.
 
 ### Later (optional)
 
+- [ ] **Remove dev SSH-on-hotspot rule** (added 2026-11-28 by hand on
+      `button-box-01`, not in the repo): a `tcp dport 22 accept` line tagged
+      `# dev only: SSH on hotspot` in `/etc/messagebox-onboarding/firewall.nft`.
+      Remove with `sudo sed -i '/dev only: SSH on hotspot/d'
+      /etc/messagebox-onboarding/firewall.nft` (or rerun `scripts/setup.sh`).
+      Must be gone before any box ships (T11).
 - [ ] **Reset reads channel pin 1** — `onboarding/reset.py` uses the first
       button of `MSGBOX_CHANNEL_PINS` when set. Not needed while
       `MSGBOX_BUTTON_PIN=25` is in the env.
