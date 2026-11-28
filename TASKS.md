@@ -173,6 +173,8 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
 - [~] **T7a Button binding replaces recipient + NFC setup** — code + tests
       done 2026-11-28; Pi check pending (approved 2026-11-28). A channel box is one with
       `MSGBOX_CHANNEL_PINS` set; single-button boxes keep today's flow.
+      (Superseded detail: binding now happens in Manage chats and buttons for
+      setup and runtime; Finish setup sits on the Setup page.)
       1. Setup page, after WhatsApp: a "Buttons" step replaces default
          recipient, voice test and NFC. Two pickers, "Green button"
          (channel 1, GPIO25) and "Red button" (channel 2, GPIO8), list the
@@ -267,6 +269,15 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
   connection. Verified in T11.
 - Messages from approved but unbound chats still queue (dashboard shows
   them), but no button plays them.
+- 2026-11-28: after a reset the box may get a new IP; Firefox kept the old
+  address for `button-box-01.local` (half-loaded, unstyled, slow dashboard)
+  until restarted. Recommend a DHCP reservation for the box in the router.
+- 2026-11-28: one `messagebox` Python process (likely the button service,
+  unconfirmed) used ~0.5 core while idle; the idle loop polls at 200 Hz
+  (`POLL_S = 0.005`) and reads both buttons per check. `/api/state` takes
+  ~1.2 s on the Zero 2 W. Neither blocks use; revisit for power/heat.
+- comitup shows "failed" after Finish (killed with SIGKILL on stop);
+  cosmetic. Optional `SuccessExitStatus=SIGKILL` in its drop-in.
 - Fresh install still needs a USB audio card for detection (`setup.sh` and
   `messagebox-audio-detect.service`). A USB dongle without a mic plugged in
   is enough.
