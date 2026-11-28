@@ -317,10 +317,16 @@ class PairingEngine:
                 self.recipients.ensure_voice_request()
             except RecipientError:
                 pass
-        if self._load_state()["status"] == "ready":
+        # The pause only protects an empty promotion destination. A store linked
+        # outside this engine (terminal setup) must keep receiving.
+        if self._load_state()["status"] == "ready" or self._live_store_in_use():
             self._resume_sync()
         else:
             self._pause_sync()
+
+    def _live_store_in_use(self):
+        return (not self.live_store.is_symlink() and self.live_store.is_dir()
+                and any(self.live_store.iterdir()))
 
     def _default_state(self):
         return {

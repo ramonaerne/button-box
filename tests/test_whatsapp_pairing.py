@@ -664,6 +664,23 @@ class WhatsAppPairingTests(unittest.TestCase):
         self.assertEqual(options["timeout"], 35)
         self.assertFalse(engine.sync_pause_path.exists())
 
+    def test_opening_on_terminal_linked_box_keeps_wacli_sync_running(self):
+        # wacli box linked from the terminal: pairing state stays idle, store is in use.
+        self.live_store.mkdir()
+        (self.live_store / "wacli.db").write_text("private", encoding="ascii")
+        self.pairing_root.mkdir()
+        (self.pairing_root / "sync-paused").touch()  # left by an earlier dashboard start
+
+        engine = self.engine()
+
+        self.assertEqual(engine.public_state()["status"], "idle")
+        self.assertFalse(engine.sync_pause_path.exists())
+
+    def test_opening_on_unlinked_box_pauses_sync(self):
+        engine = self.engine()
+
+        self.assertTrue(engine.sync_pause_path.exists())
+
     def test_relink_cleanup_failure_is_paused_and_resumable(self):
         runner = WacliRunner()
         recipients = FlakyRecipientReset()
