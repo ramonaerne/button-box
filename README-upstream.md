@@ -622,7 +622,7 @@ GPIO, NFC, Wi-Fi, or WhatsApp behaviors were physically tested.
 - `scripts/dev/`: experimental developer onboarding and hardware checks
 - `systemd/`: device services and runtime target
 - `config/`: public configuration and pinned dependencies
-- `hardware/`: [hardware list and printable enclosure files](hardware/README.md)
+- `hardware/`: [hardware list and printable enclosure files](hardware/README-upstream.md)
 - `sounds/`: audio licensing requirements and future assets
 - `tests/`: synthetic unit and contract tests
 - `docs/`: architecture, installation, testing, and developer documentation
