@@ -91,6 +91,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | D14 | (2026-11-25, provisional) Keep **review before send** on (upstream default) for now. Revisit with a real mic before the gift ships (T12). Turning it off gives "hold to talk, release sends" (the original MODIFICATION.md idea) but removes the undo; the turn rule (T5) limits the cost of an accidental send. |
 | D16 | (2026-11-28) Replaces D2: no upstream PRs. The fork has drifted (Pi changes, new features) and stays a fork. T0 and T4 are dropped; "(upstream)" labels below are historical. Per-reply limit (D15) is final; no per-day limit. Signal stays deferred. |
 | D17 | (2026-11-28) Replaces D7, D8, D9, D12, D13: each button is bound to its own WhatsApp group. "Reassigning" means changing the group's members on a phone. Binding happens in the setup page (replacing recipient + NFC steps) or the runtime dashboard, without box confirmation (accepted risk until the dashboard-off plan). Setup is redone after a reset: hotspot, Wi-Fi, WhatsApp, buttons. |
+| D19 | (2026-11-28) Replaces the press-to-send step on channel boxes: with review on, the replay is the decision. A press during the replay deletes it at once ("deleted" cue, no press beep); a replay heard to the end sends. Nothing to remember after the replay; single-button boxes keep press-to-send. |
 | D18 | (2026-11-28) Channel boxes run without the dashboard after setup. Changes mean a full reset and setup again; otherwise the developer uses SSH from the LAN (`sudo systemctl start messagebox-dash` for a temporary dashboard). Replaces the time-windowed dashboard idea; T13 is moot for this box. |
 | D15 | (2026-11-26) Replaces the one-turn rule: up to N sends per channel between replies, N set in the dashboard (off/1/2/3/5, default off). Reset when a newer reply is **played**, not just received. Per channel. Limit reached → wait tone only, mic stays closed. Not a security boundary: the dashboard has no login. |
 
@@ -159,7 +160,9 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       chats and binds channels (no box confirmation). *AC:* a fresh Pi
       reaches a two-channel working box using only the terminal flow and
       README steps.
-- [ ] **T8 Audio dongle + hardware docs** — *AC:* the mixer control names for
+- [~] **T8 Audio dongle + hardware docs** — docs done 2026-11-28
+      (`docs/channel-box.md`: wiring, power, env, label); mixer control still
+      set by hand (`MSGBOX_SPEAKER_CONTROL=Speaker`). — *AC:* the mixer control names for
       the dongle are checked and set by setup (or documented in env). Volume
       changes take effect. Power and wiring notes (speaker on the 5 V rail,
       MOSFET LEDs, PSU) are in `hardware/README.md`.
@@ -225,7 +228,8 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       reset keeps WhatsApp and bindings (2026-11-28) — *AC:* on the physical box: the
       hotspot appears, Wi-Fi joins, and the Wi-Fi reset gesture keeps
       WhatsApp and bindings.
-- [ ] **T12 Decide review before send for the gift** (open, D14) — *AC:* the
+- [~] **T12 Decide review before send for the gift** — decided 2026-11-28
+      (D19); Pi check pending (open, D14) — *AC:* the
       shipped setting is chosen after testing with a real mic and a child-like
       user, and is recorded in D14.
 - [-] **T13 Dashboard message audio off** — moot for channel boxes (D18:

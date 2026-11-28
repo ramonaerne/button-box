@@ -581,6 +581,7 @@ class GuidedSession:
         incoming_voice_path: str | None = None,
         incoming_age_path: str | None = None,
         incoming_end_path: str | None = None,
+        cancel_during_review: bool = False,
     ) -> str:
         session_id = session_id or uuid.uuid4().hex
         self.event("guided_session_started", session_id=session_id, flow=flow_kind)
@@ -611,7 +612,13 @@ class GuidedSession:
         # fresh approval, even when automatic sending is otherwise selected.
         review_before_send = review_before_send or recording.timed_out or recording.review_required
         approved = not review_before_send
-        if review_before_send:
+        if review_before_send and cancel_during_review:
+            # Channel boxes: nothing to remember. A press during the replay
+            # deletes; a replay heard to the end sends.
+            cancelled = self.io.play_review_cancellable(recording.path)
+            self.event("guided_review_played", session_id=session_id, duration=recording.duration)
+            approved = not cancelled
+        elif review_before_send:
             getattr(self.io, "play_review", self.io.play_ordinary)(recording.path)
             self.event("guided_review_played", session_id=session_id, duration=recording.duration)
             approved = self.io.wait_for_approval(10.0)

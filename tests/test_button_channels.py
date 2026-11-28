@@ -157,6 +157,8 @@ class ChannelRoutingTests(unittest.TestCase):
         play.assert_not_called()
         self.assertEqual(io.call_args.args[0], GRANDMA)
         self.assertEqual(session.return_value.run.call_args.kwargs["recipient"], GRANDMA)
+        # Channel boxes: the replay itself decides (press = delete, heard = send).
+        self.assertTrue(session.return_value.run.call_args.kwargs["cancel_during_review"])
 
     def limited_hold(self, channel_id, outcome="approved"):
         with mock.patch.object(button_send, "_channel_id", channel_id), mock.patch.object(

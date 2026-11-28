@@ -2060,7 +2060,7 @@ def wait_for_approval(timeout, session_id=None):
     return True
 
 
-def play_audio_for_approval(path, session_id=None, *, action="approve_warning"):
+def play_audio_for_approval(path, session_id=None, *, action="approve_warning", acknowledge=True):
     """Consume only a fresh deliberate press in review or deletion warning."""
     discard_held_playback_press(lambda: button.is_pressed, wait_for_stable_open)
     process = start_player(["aplay", "-q", "-D", SPK_DEV, str(path)])
@@ -2083,7 +2083,7 @@ def play_audio_for_approval(path, session_id=None, *, action="approve_warning"):
             process.wait()
     if transport_mode() == "cloud" and not approved and process.returncode:
         raise subprocess.CalledProcessError(process.returncode, "aplay")
-    if approved:
+    if approved and acknowledge:
         acknowledge_guided_press(action, session_id)
     wait_for_stable_open()
     return approved
@@ -2334,6 +2334,11 @@ class PiGuidedIO:
             play_moment(voice="review")
         self.play_ordinary(path)
 
+    def play_review_cancellable(self, path):
+        """True when a press interrupted the replay; the caller then deletes."""
+        # No press beep: the "deleted" cue that follows is the feedback.
+        return play_audio_for_approval(path, self.session_id, acknowledge=False)
+
     def play_deleted(self, path):
         self.play_ordinary(path)
         if not self.setup_reply and buttonbox_voice():
@@ -2486,6 +2491,7 @@ def record_and_send_legacy(settings=None, pressed_at=None, *, card_prompt_uid=No
             deleted_cue_path=str(sound_pack.cue_path("deleted")),
             review_before_send=settings.get("review_before_send", False), account_scope=scope,
             nfc_selection_id=context["selection"]["selection_id"] if context["via_card"] else None,
+            cancel_during_review=bool(channels),
         )
     except Exception:
         cleanup_temp_recordings()
@@ -2646,6 +2652,7 @@ def run_guided_once(settings=None, *, card_prompt_uid=None, acknowledge_listenin
             incoming_voice_path=str(intro) if intro else None,
             incoming_age_path=str(age) if age else None,
             incoming_end_path=str(sound_pack.cue_path("msg_end")) if not queued() else None,
+            cancel_during_review=bool(channels),
         )
         if claim:
             finish_claim(claim)

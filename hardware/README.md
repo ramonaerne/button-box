@@ -1,5 +1,9 @@
 # Hardware
 
+Two-button channel box (fork): wiring, power, configuration and the required
+label are in [docs/channel-box.md](../docs/channel-box.md); the schematic is
+[schematic-2-channel.svg](schematic-2-channel.svg).
+
 ## BOM
 
 Two build versions exist: the **US reference build** below (pairs with the [Original / US enclosure](enclosure/README.md)), and the **EU build** ([EU BOM](enclosure/eu-el001/BOM.md), pairs with the [EU S8 enclosure](enclosure/README.md)).
