@@ -479,7 +479,8 @@ class RecipientSetup:
     @synchronized
     def remove(self, token):
         state = self._load()
-        if state["status"] != "complete":
+        # Channel boxes route by button and never run the voice test.
+        if state["status"] != "complete" and not self.contacts.load()["channels"]:
             raise RecipientError("complete the voice test before removing recipients")
         if token == state["default_token"]:
             raise RecipientError("default recipient cannot be removed during onboarding")

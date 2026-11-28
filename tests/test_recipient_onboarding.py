@@ -132,6 +132,13 @@ class RecipientSetupTests(unittest.TestCase):
         self.assertEqual({item["button"] for item in freed["recipients"]}, {None})
         self.setup.bind_button("2", tokens["Family"])  # a freed chat can move to the other button
 
+        # Without a voice test, a channel box can still remove a chat; its button is freed.
+        self.setup.bind_button("1", tokens["+15551234567"])
+        self.setup.remove(tokens["Family"])
+        contacts = ContactStore(self.contacts_path).load()
+        self.assertEqual(contacts["channels"], {"1": PERSON})
+        self.assertNotIn(GROUP, contacts["contacts"])
+
     def test_voice_request_failure_keeps_selection_retryable(self):
         listed = self.candidates()
         token = next(
