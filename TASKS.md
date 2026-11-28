@@ -62,8 +62,8 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
    would remove this, but its memory use on 512 MB is unchecked.
 2. **Unofficial client.** `wacli` use can get the number banned. The box
    account must be a dedicated, expendable number.
-3. **Upstream divergence.** Keep channel work generic and PR-able (see the
-   issue draft below) to limit fork conflicts.
+3. **Upstream divergence.** No PRs (D16), so pulling later upstream fixes
+   gets harder over time. Merge upstream only when a fix is needed.
 4. **No-login dashboard.** Anyone on the household Wi-Fi can request a rebind.
    This is mitigated by the physical confirmation (T6).
 5. **Personal data.** Relatives' numbers are entered only on the box (in the
@@ -89,6 +89,7 @@ tracks it as `fork/release/v0.3.16`), not `main`. Facts that changed versus
 | D12 | Confirmation: after a rebind request, that button's LED blinks fast. Holding that button for 5 s within 5 min confirms. Until then the button keeps its old chat and doesn't record. An unconfirmed rebind expires. |
 | D13 | The household picks only from a short list of approved chats (relatives) that the builder enters in the terminal. |
 | D14 | (2026-11-25, provisional) Keep **review before send** on (upstream default) for now. Revisit with a real mic before the gift ships (T12). Turning it off gives "hold to talk, release sends" (the original MODIFICATION.md idea) but removes the undo; the turn rule (T5) limits the cost of an accidental send. |
+| D16 | (2026-11-28) Replaces D2: no upstream PRs. The fork has drifted (Pi changes, new features) and stays a fork. T0 and T4 are dropped; "(upstream)" labels below are historical. Per-reply limit (D15) is final; no per-day limit. Signal stays deferred. |
 | D15 | (2026-11-26) Replaces the one-turn rule: up to N sends per channel between replies, N set in the dashboard (off/1/2/3/5, default off). Reset when a newer reply is **played**, not just received. Per channel. Limit reached → wait tone only, mic stays closed. Not a security boundary: the dashboard has no login. |
 
 Accepted defaults: each channel binds one chat (person or group). Only
@@ -113,12 +114,10 @@ distinct blink on all LEDs.
 ## Tasks
 
 Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
-"Upstream" marks tasks intended as PRs.
 
 ### Phase 1
 
-- [ ] **T0 Upstream issue** — the human posts the issue drafted below. *AC:*
-      the maintainers' answer is noted here before T1–T3 are shaped for a PR.
+- [-] **T0 Upstream issue** — dropped (D16).
 - [x] **T1 Channel bindings (upstream)** — done 2026-11-24 (contacts schema v3, `messagebox-contact bind/unbind`) — store channel → chat with the
       private contacts document (atomic write, lock, 0600 as today).
       *AC:* a contacts document without channels loads unchanged, and the
@@ -140,9 +139,8 @@ Phase 1 is the builder's test box (Path A). Phase 2 is the gift (Path B).
       chats are not queued. Restart recovery (in-flight, outbox, played
       archive) still works per channel. NFC, recent-sender and default
       routing are never used on a channel box.
-- [ ] **T4 Guided mode with channels (upstream, before the PR)** —
-      *AC:* the guided flow (play waiting messages, then countdown, record,
-      press to send) works per channel with the same isolation as T3.
+- [-] **T4 Guided mode with channels** — dropped (D16); channel boxes run
+      hold mode only.
 - [~] **T5 Sends per reply (upstream setting, D15)** — code + tests done; physical check pending — settings key
       `sends_per_reply`, one of off/1/2/3/5, default off, editable in the
       dashboard like `max_recording_seconds`. *AC:* when off, behaviour is
@@ -274,19 +272,3 @@ This is not obvious to a first-time user (see T12).
 
 - Signal via `signal-cli` as the primary device (removes the phone
   dependency). First check memory use on a Zero 2 W.
-
-## Draft upstream issue (for the human to post)
-
-> **Feature proposal: multiple buttons, each bound to one chat**
->
-> I'm building a Pi Zero 2 W variant with two arcade buttons. Each button
-> (and its LED) is bound to exactly one approved chat: tap plays that chat's
-> waiting messages, and hold records a reply to it. I'd like to contribute
-> this upstream as a generic N-button feature that leaves single-button
-> boxes unchanged, plus an optional "one message until a reply is played"
-> setting and a physical on-box confirmation for rebinding from the
-> dashboard. Would you accept PRs in this direction, and do you have
-> preferences on where the binding should live (contacts document vs.
-> settings)?
->
-> *Drafted with AI assistance.*
