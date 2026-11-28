@@ -187,6 +187,34 @@ class ChannelRoutingTests(unittest.TestCase):
         ), mock.patch.object(button_send, "react_played"):
             button_send.play_next_legacy(GRANDMA)
 
+    def tap_with_empty_queue(self):
+        with mock.patch.object(button_send, "play_pending_listened"), mock.patch.object(
+            button_send, "play_message_start"
+        ), mock.patch.object(button_send, "play_sound") as play_sound, mock.patch.object(
+            button_send, "archive_played_file"
+        ) as archive:
+            button_send.play_next_legacy(GRANDMA)
+        archive.assert_not_called()  # a replay is not a new play
+        return [call.args[0].name for call in play_sound.call_args_list]
+
+    def test_tap_with_nothing_waiting_replays_this_chats_newest_played_message(self):
+        self.assertEqual(self.tap_with_empty_queue(), [])  # nothing kept: silent, as before
+
+        from messagebox.played_history import archive_played_file
+        for name, chat, played_at in (
+            ("100-older.wav", GRANDMA, 100.0),
+            ("200-newer.wav", GRANDMA, 200.0),
+            ("300-other.wav", FAMILY, 300.0),  # newest overall, but another button's chat
+        ):
+            self.queue_from(chat, name)
+            archive_played_file(self.queue_path, self.queue_path / name, metadata={"chat": chat}, played_at=played_at)
+
+        with mock.patch.object(button_send.time, "time", return_value=400.0), mock.patch(
+            "messagebox.played_history.time.time", return_value=400.0
+        ):
+            self.assertEqual(self.tap_with_empty_queue(), ["200-newer.wav"])
+            self.assertEqual(self.tap_with_empty_queue(), ["200-newer.wav"])  # as often as wanted
+
     def test_sends_per_reply_blocks_hold_until_newer_reply_is_played(self):
         limit_file = Path(self.directory.name) / "channel-sends.json"
         self.settings = {**self.settings, "sends_per_reply": 1}

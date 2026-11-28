@@ -43,7 +43,10 @@ MSGBOX_SPEAKER_CONTROL=Speaker   # the dongle has no PCM control
 ## Using the box
 
 - **Tap** a button: plays that group's waiting messages, oldest first. Its LED
-  is on while messages wait and blinks when one arrives.
+  is on while messages wait and blinks when one arrives. With nothing waiting,
+  a tap replays that group's most recently played message, as often as wanted.
+  The box keeps the last 10 played messages (both buttons together) for up to
+  14 days; if none from that group is kept, the tap does nothing.
 - **Hold** a button: records after the press cue; release to stop.
 - **Replay and send:** with *review before send* on, the box replays the
   recording. Heard to the end, it sends (swoosh). Press any time during the

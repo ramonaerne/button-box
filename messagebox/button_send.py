@@ -44,7 +44,7 @@ from messagebox.guided_reply import (
     valid_account_scope,
 )
 from messagebox.audio_requests import AudioRequests, OptionalAudioRequests, success_key
-from messagebox.played_history import archive_played_file, recent_reply_recipient
+from messagebox.played_history import archive_played_file, list_played_history, played_dir, recent_reply_recipient
 from messagebox.listened_receipts import AnnouncementGate, ReceiptStore, parse_wacli_send_id
 from messagebox.contacts import _BOX_JID, ContactError, ContactStore, parse_channel_pins
 from messagebox.nfc_state import AnnouncementStore, NfcError, SelectionStore, REANNOUNCE_COOLDOWN_S
@@ -2379,10 +2379,30 @@ class PiGuidedIO:
             pass
 
 
+def replay_latest(chat):
+    """Channel boxes: replay the newest played message of this chat; silent if none is kept."""
+    for record in list_played_history(QUEUE_DIR):
+        if record["metadata"].get("chat") == chat and record["available"]:
+            log("replaying the latest played message")
+            try:
+                play_message_start(record["metadata"])
+                play_sound(played_dir(QUEUE_DIR) / record["file"], timeout=600)
+                # A replay is not a new play: no archive, receipt or send-limit change.
+                log_event("replayed")
+            except Exception as exc:
+                log(f"replay error: {exc}")
+                beep("fail")
+            wait_for_stable_open()
+            return True
+    return False
+
+
 def play_next_legacy(chat=None):
     play_pending_listened()
     names = queued(chat)
     if not names:
+        if chat is not None and channels:
+            replay_latest(chat)
         return
     selected = None
     for name in names:
