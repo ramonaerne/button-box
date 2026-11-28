@@ -251,7 +251,8 @@ class DashboardHomeTests(unittest.TestCase):
         with patch.dict("os.environ", environ), patch.object(
             dashboard, "contacts_store"
         ) as contacts, patch.object(dashboard, "RecipientSetup") as proof, patch.object(
-            dashboard.subprocess, "run", return_value=SimpleNamespace(returncode=0, stdout="{}")
+            dashboard.subprocess, "run",
+            return_value=SimpleNamespace(returncode=0, stdout='{"data":{"authenticated":true}}'),
         ), patch.object(dashboard, "runtime_running", return_value=True):
             contacts.return_value.public_view.return_value = {
                 "contacts": {"synthetic-group": {}}, "default_recipient": "synthetic-group",
@@ -265,6 +266,7 @@ class DashboardHomeTests(unittest.TestCase):
             result = dashboard.runtime_state()
             self.assertEqual(result["setup"]["recipient"], "complete")
             self.assertEqual(result["setup"]["first_message"], "complete")
+            self.assertEqual(result["setup"]["whatsapp"], "complete")
             proof.assert_not_called()
 
 if __name__ == "__main__":

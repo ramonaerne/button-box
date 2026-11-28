@@ -276,12 +276,13 @@ def runtime_state():
             pass
     # Channel boxes have no voice-proof step.
     first_message_ready = bool(channels)
-    if not cloud_mode and not channels:
-        try:
-            recipient_state = RecipientSetup().public_state()
-            first_message_ready = recipient_state.get("status") == "complete"
-        except (OSError, RecipientError):
-            pass
+    if not cloud_mode:
+        if not channels:
+            try:
+                recipient_state = RecipientSetup().public_state()
+                first_message_ready = recipient_state.get("status") == "complete"
+            except (OSError, RecipientError):
+                pass
         try:
             result = subprocess.run(
                 [WACLI_BIN, "--read-only", "--json", "auth", "status"],
