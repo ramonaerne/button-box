@@ -1039,9 +1039,10 @@ function renderSetup(state) {
   document.getElementById("required-tasks").replaceChildren(
     taskStatus("Connect Wi-Fi", progress.wifi, activeSetup ? "#continue" : "#advanced"),
     taskStatus(cloud ? "Press the button and name your box" : "Link WhatsApp", progress.whatsapp, cloud ? cloudDashboard : "#whatsapp"),
-    channelBox(state)
-      ? taskStatus("Choose chats for the green and red buttons", progress.recipient, activeSetup ? "#buttons" : "#recipients")
-      : taskStatus("Choose a default recipient", progress.recipient, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced"),
+    // After setup, channel boxes assign buttons in Manage chats and buttons.
+    ...(channelBox(state)
+      ? (activeSetup ? [taskStatus("Choose chats for the green and red buttons", progress.recipient, "#buttons")] : [])
+      : [taskStatus("Choose a default recipient", progress.recipient, cloud ? cloudDashboard : activeSetup ? "#continue" : "#advanced")]),
     ...(channelBox(state) ? [] : [
       taskStatus("Receive, play, record, and send a test message", progress.first_message, activeSetup ? "#continue" : "#activity"),
     ]),
